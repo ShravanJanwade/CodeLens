@@ -197,3 +197,5 @@ func (cb *CircuitBreaker) Stats() map[string]interface{} {
 		"lastStateChange": cb.lastStateChange,
 	}
 }
+
+// Update: minor optimization
