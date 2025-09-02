@@ -43,3 +43,5 @@ func RequestLogger() fiber.Handler {
 		return err
 	}
 }
+
+// Update: minor optimization
