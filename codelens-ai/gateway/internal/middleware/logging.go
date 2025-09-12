@@ -45,3 +45,4 @@ func RequestLogger() fiber.Handler {
 }
 
 // Update: minor optimization
+// Update: minor optimization
