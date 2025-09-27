@@ -167,3 +167,5 @@ async def summarize_file(request: SummarizeRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Refactored on 2026-01-15
