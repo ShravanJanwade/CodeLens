@@ -117,3 +117,5 @@ class LLMClient:
                     "Cannot connect to Ollama. Make sure Ollama is running: "
                     "https://ollama.ai/download"
                 )
+
+# Refactored on 2026-01-15
