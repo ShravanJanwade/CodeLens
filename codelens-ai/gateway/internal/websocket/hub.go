@@ -225,3 +225,5 @@ func writePump(client *Client) {
 		}
 	}
 }
+
+// Update: minor optimization
