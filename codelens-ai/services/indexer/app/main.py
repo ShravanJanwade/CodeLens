@@ -234,3 +234,5 @@ async def index_repository(owner: str, repo: str, branch: str, job_id: str):
         print(f"❌ Indexing failed for {repo_id}: {e}")
         indexing_jobs[job_id]["status"] = "failed"
         indexing_jobs[job_id]["error"] = str(e)
+
+# Refactored on 2026-01-15
