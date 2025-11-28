@@ -244,3 +244,5 @@ function ServiceStatus({ name, status }: { name: string; status: boolean }) {
     </div>
   );
 }
+
+// Update: minor optimization
