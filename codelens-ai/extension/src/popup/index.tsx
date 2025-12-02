@@ -8,3 +8,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <Popup />
   </React.StrictMode>
 );
+
+// Update: minor optimization
