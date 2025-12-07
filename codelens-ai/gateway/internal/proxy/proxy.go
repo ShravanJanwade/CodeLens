@@ -108,3 +108,5 @@ func (p *ServiceProxy) GetBreakerStats() map[string]interface{} {
 	}
 	return stats
 }
+
+// Update: minor optimization
