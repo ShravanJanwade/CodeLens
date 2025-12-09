@@ -84,3 +84,5 @@ export default defineConfig({
     ),
   },
 });
+
+// Update: minor optimization
