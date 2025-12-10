@@ -156,3 +156,5 @@ func (c *Cache) cleanup() {
 		c.mu.Unlock()
 	}
 }
+
+// Update: minor optimization
