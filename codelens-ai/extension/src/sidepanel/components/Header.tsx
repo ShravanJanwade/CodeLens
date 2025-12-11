@@ -40,3 +40,5 @@ export default function Header({ context }: Props) {
     </header>
   );
 }
+
+// Update: minor optimization
