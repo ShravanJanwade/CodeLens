@@ -200,3 +200,5 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
 
 // Export for type checking
 export {};
+
+// Update: minor optimization
