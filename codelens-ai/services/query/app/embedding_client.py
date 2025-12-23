@@ -132,3 +132,5 @@ def get_embedding_client() -> EmbeddingClient:
     if _client is None:
         _client = EmbeddingClient()
     return _client
+
+# Refactored on 2026-01-15
