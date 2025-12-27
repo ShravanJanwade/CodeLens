@@ -66,3 +66,5 @@ func GenerateToken(userID string, secret string) (string, error) {
 
 	return token.SignedString([]byte(secret))
 }
+
+// Update: minor optimization
