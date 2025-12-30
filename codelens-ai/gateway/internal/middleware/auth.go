@@ -68,3 +68,4 @@ func GenerateToken(userID string, secret string) (string, error) {
 }
 
 // Update: minor optimization
+// Update: minor optimization
