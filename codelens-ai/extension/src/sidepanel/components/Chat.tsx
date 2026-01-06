@@ -428,3 +428,5 @@ function MessageBubble({ message, context }: { message: Message; context: GitHub
     </div>
   );
 }
+
+// Update: minor optimization
