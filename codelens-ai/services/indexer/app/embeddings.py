@@ -266,3 +266,5 @@ class CodeEmbedder:
             }
         except Exception:
             return {"count": 0, "name": None}
+
+# Refactored on 2026-01-15
