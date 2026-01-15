@@ -128,3 +128,5 @@ export const useStore = create<StoreState>()(
     }
   )
 );
+
+// Update: minor optimization
