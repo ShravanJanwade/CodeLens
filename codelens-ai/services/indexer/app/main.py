@@ -236,3 +236,4 @@ async def index_repository(owner: str, repo: str, branch: str, job_id: str):
         indexing_jobs[job_id]["error"] = str(e)
 
 # Refactored on 2026-01-15
+# Refactored on 2026-01-15
