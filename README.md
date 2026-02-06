@@ -64,7 +64,7 @@ graph TD
 
     subgraph "Data & AI"
         Chroma[(🗄️ ChromaDB)]
-        LLM[🤖 LLM Provider (Groq/OpenAI)]
+        LLM["🤖 LLM Provider (Groq/OpenAI)"]
     end
 
     Ext -->|REST / WebSocket| Gateway
