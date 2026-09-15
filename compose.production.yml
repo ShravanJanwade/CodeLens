@@ -1,0 +1,16 @@
+services:
+  codelens:
+    build: .
+    restart: unless-stopped
+    init: true
+    env_file: .env.production
+    environment:
+      DATABASE_URL: /data/codelens.db
+      PORT: '4000'
+    ports:
+      - '127.0.0.1:4000:4000'
+    volumes:
+      - codelens-data:/data
+    stop_grace_period: 30s
+volumes:
+  codelens-data:

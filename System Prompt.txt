@@ -1,0 +1,2151 @@
+You are the lead staff software engineer, system architect, product engineer, UI/UX designer, DevOps engineer, and AI engineer responsible for transforming this existing CodeLens repository into a polished, production-quality, FAANG-level portfolio project.
+
+IMPORTANT: Do NOT immediately rewrite the repository.
+
+First inspect the existing repository thoroughly and understand what is already implemented. Preserve useful existing functionality, code, architecture, components, extension logic, and ideas wherever possible. Improve them rather than throwing them away unnecessarily.
+
+The final repository must become one cohesive flagship project that combines:
+
+1. CodeLens AI
+   AI-powered code intelligence and repository analysis.
+
+2. AegisOps
+   AI-powered production observability, incident investigation, root-cause analysis, and remediation.
+
+The overall product should tell one coherent engineering story:
+
+CODE → ANALYSIS → DEPLOYMENT → OBSERVABILITY → INCIDENT → AI INVESTIGATION → REMEDIATION
+
+The product should feel like a real developer infrastructure platform, not a student CRUD application.
+
+==================================================
+PROJECT POSITIONING
+===================
+
+Create one unified product with a professional name.
+
+The existing CodeLens branding may be retained if it is strong, but choose a better umbrella name if necessary.
+
+Suggested positioning:
+
+"An agentic software engineering platform that understands source code before deployment and autonomously investigates production incidents after deployment."
+
+The portfolio should demonstrate:
+
+* system design
+* distributed systems
+* backend engineering
+* databases
+* event-driven architecture
+* queues
+* caching
+* observability
+* fault tolerance
+* agentic AI
+* tool calling
+* workflow orchestration
+* human-in-the-loop systems
+* developer tooling
+* cloud deployment
+* security
+* testing
+* CI/CD
+* performance engineering
+
+This project must be something I can confidently discuss in a FAANG-level system design or software engineering interview.
+
+==================================================
+NON-NEGOTIABLE COST CONSTRAINT
+==============================
+
+EVERYTHING MUST BE FREE.
+
+The project must not require:
+
+* paid AWS services
+* paid GCP services
+* paid Azure services
+* OpenAI API
+* Anthropic API
+* paid Gemini API
+* paid vector databases
+* paid observability platforms
+* paid databases
+* paid queues
+* paid hosting
+* paid SaaS dependencies
+* paid domains
+* paid CI/CD
+
+Use open-source software and genuinely free tiers only.
+
+The project should be able to run completely locally without paying anything.
+
+For public deployment, use only services whose free tier is sufficient for the portfolio demo.
+
+Preferred free deployment direction:
+
+Frontend:
+
+* Cloudflare Pages or Cloudflare Workers Static Assets
+
+Backend/API:
+
+* Cloudflare Workers where practical
+* OR another genuinely free hosting provider only if it can be used at $0 without requiring paid resources
+
+Database:
+
+* Cloudflare D1
+* or Supabase Free only if appropriate
+
+Caching:
+
+* Cloudflare KV where appropriate
+* or application-level caching
+
+Storage:
+
+* Cloudflare R2 only when its free allowance is sufficient
+* otherwise avoid object storage unless needed
+
+Authentication:
+
+* implement secure application authentication using open-source libraries
+* avoid paid auth SaaS
+
+AI:
+
+* Ollama locally
+* open-source models such as Qwen, Llama-family, Mistral-family, Gemma-family or another suitable locally runnable model
+* use a provider abstraction so AI model providers can be swapped
+* NO mandatory paid LLM API
+
+Observability:
+
+* OpenTelemetry
+* Prometheus
+* Grafana
+* Jaeger
+* all locally runnable
+
+Messaging:
+
+* Kafka locally if valuable
+* otherwise Redis Streams or an in-process/event abstraction for the deployed free version
+* choose based on realistic complexity and free deployment constraints
+
+Workflow engine:
+
+* use Temporal locally only if it can be demonstrated without paid infrastructure
+* otherwise implement a durable workflow abstraction using database-backed jobs/events
+
+CI/CD:
+
+* GitHub Actions
+* avoid paid runners or private-repository-only features
+
+Containerization:
+
+* Docker
+* docker-compose
+
+Infrastructure:
+
+* Terraform only if it meaningfully improves the project and remains compatible with free services
+
+IMPORTANT:
+Do not use a "free trial" that silently becomes paid.
+
+Do not require a credit card for core development.
+
+Make the entire application runnable locally with one documented command.
+
+==================================================
+PHASE 0: REPOSITORY AUDIT
+=========================
+
+Before changing anything:
+
+1. inspect the entire repository
+2. inspect package files
+3. inspect README
+4. inspect source structure
+5. identify frontend
+6. identify backend
+7. identify browser extension architecture
+8. identify AI integrations
+9. identify database/storage
+10. identify existing authentication
+11. identify existing API routes
+12. identify reusable UI components
+13. identify reusable domain logic
+14. identify dead code
+15. identify incomplete features
+16. identify security issues
+17. identify architectural weaknesses
+
+Create a short internal architecture assessment.
+
+Do NOT destroy working CodeLens functionality.
+
+Reuse as much as possible.
+
+==================================================
+TARGET PRODUCT ARCHITECTURE
+===========================
+
+Build the system around these logical domains:
+
+1. Identity & Access
+2. Repository Management
+3. Code Intelligence
+4. Service Registry
+5. Telemetry Ingestion
+6. Incident Management
+7. Agent Orchestration
+8. Remediation
+9. Evaluation
+10. Analytics
+
+High-level architecture:
+
+```
+                WEB APPLICATION
+                      |
+                      v
+              API / EDGE LAYER
+                      |
+      +---------------+----------------+
+      |               |                |
+      v               v                v
+```
+
+Code Intelligence   Incident API   Service API
+|               |                |
++---------------+----------------+
+|
+Event Bus
+|
++-----------------+------------------+
+|                 |                  |
+v                 v                  v
+Detection Worker   Agent Orchestrator   Notification Worker
+|
++-------+--------+
+|       |        |
+v       v        v
+Logs   Metrics   Traces
+|       |        |
++-------+--------+
+|
+Root Cause Agent
+|
+Remediation Agent
+|
+Human Approval
+|
+Action Executor
+|
+Verification
+|
+Incident Closed
+
+The architecture must be modular so components can be swapped.
+
+==================================================
+PRODUCT EXPERIENCE
+==================
+
+The public frontend must look like a real developer infrastructure product.
+
+Do NOT make it look like a generic AI SaaS landing page.
+
+Design direction:
+
+* dark professional developer-tool aesthetic
+* restrained typography
+* clean information hierarchy
+* high-quality dashboard
+* excellent spacing
+* subtle animations
+* real-time activity
+* charts that communicate information clearly
+* keyboard-friendly interactions
+* responsive design
+* desktop-first but functional on mobile
+* no excessive gradients
+* no unnecessary glassmorphism
+* no giant marketing fluff
+* no cartoonish AI visuals
+
+Use:
+
+* React
+* TypeScript
+* Tailwind
+* shadcn/ui or an equivalent open-source component system
+* React Query or equivalent data fetching/state synchronization
+* Recharts or equivalent charting library
+
+The frontend should feel comparable in quality to products such as:
+
+* Linear
+* Vercel
+* GitHub
+* Datadog
+* Sentry
+* modern internal developer platforms
+
+Do not copy their design.
+
+Use them only as quality references.
+
+==================================================
+PUBLIC ROUTES
+=============
+
+Create a proper deployable website.
+
+At minimum:
+
+/
+/dashboard
+/repositories
+/repositories/:id
+/code-analysis
+/services
+/services/:id
+/incidents
+/incidents/:id
+/agents
+/activity
+/evaluations
+/settings
+
+Also create:
+
+/demo
+
+This page should allow recruiters to experience the system without configuring anything.
+
+==================================================
+LANDING PAGE
+============
+
+The landing page should immediately explain the value.
+
+Hero:
+
+"AI that understands your code and your production systems."
+
+Supporting text:
+
+"CodeLens analyzes repositories before deployment. AegisOps investigates production incidents, correlates telemetry, identifies likely root causes, and recommends safe remediation."
+
+Primary CTA:
+
+"Launch Demo"
+
+Secondary CTA:
+
+"View Architecture"
+
+Display a realistic system flow:
+
+Repository
+→
+Code Analysis
+→
+Deployment
+→
+Telemetry
+→
+Incident
+→
+AI Investigation
+→
+Remediation
+
+Do not make fake claims such as "enterprise-grade" unless backed by an actual implementation.
+
+==================================================
+CODELENS MODULE
+===============
+
+Transform the existing Chrome extension from being the entire product into a client of the larger platform.
+
+The browser extension should continue to exist.
+
+But the core experience must also be available through the web application.
+
+Users must be able to:
+
+* connect or upload a repository
+* analyze source files
+* inspect repository structure
+* inspect dependencies
+* identify code smells
+* identify possible bugs
+* calculate complexity
+* identify duplicated logic
+* identify risky files
+* generate architecture summaries
+* generate dependency graphs
+* explain functions
+* explain classes
+* explain modules
+* generate refactoring recommendations
+* inspect historical analysis
+* compare analysis results across versions
+
+Create a Code Intelligence page with:
+
+Repository tree
+Dependency graph
+Risk score
+Complexity information
+AI findings
+Static-analysis findings
+Suggested improvements
+Analysis timeline
+
+IMPORTANT:
+Use deterministic static analysis wherever possible.
+
+Do NOT rely entirely on an LLM.
+
+The AI should interpret evidence generated by tools.
+
+==================================================
+CODE ANALYSIS PIPELINE
+======================
+
+Create a pipeline such as:
+
+Repository
+→ File discovery
+→ Language detection
+→ Parsing
+→ Static analysis
+→ Dependency extraction
+→ Complexity analysis
+→ Risk scoring
+→ AI reasoning
+→ Findings
+→ Report
+
+Support at least:
+
+JavaScript
+TypeScript
+Java
+Python
+
+Use free/open-source parsers and analysis tools.
+
+Do not pretend a language is supported unless the implementation actually supports it.
+
+==================================================
+AEGISOPS MODULE
+===============
+
+Build AegisOps as the second major module.
+
+The system should simulate a production environment made of several microservices.
+
+Example services:
+
+* api-gateway
+* user-service
+* order-service
+* payment-service
+* inventory-service
+* notification-service
+
+These services can be intentionally simple.
+
+The complexity should be in the platform around them.
+
+Each service exposes:
+
+* health endpoint
+* metrics
+* structured logs
+* trace information
+* deployment metadata
+
+Use OpenTelemetry where practical.
+
+==================================================
+FAILURE SIMULATOR
+=================
+
+Create a demo control panel that can intentionally introduce failures.
+
+Example actions:
+
+* increase database latency
+* increase HTTP error rate
+* kill a service
+* introduce connection pool exhaustion
+* introduce CPU pressure
+* introduce memory pressure
+* introduce artificial timeout
+* increase Kafka/queue lag
+* introduce downstream dependency failure
+* deploy a buggy version
+* introduce cache failures
+
+Example UI:
+
+FAILURE SIMULATOR
+
+[ Add DB latency ]
+[ Kill payment service ]
+[ Increase error rate ]
+[ Simulate timeout ]
+[ Simulate queue lag ]
+[ Deploy buggy version ]
+
+Every failure must produce real telemetry inside the demo environment.
+
+==================================================
+DETECTION SYSTEM
+================
+
+Build a detection pipeline.
+
+Example:
+
+Telemetry
+→ normalization
+→ rule evaluation
+→ threshold/window evaluation
+→ anomaly detection
+→ incident creation
+→ incident correlation
+
+Implement:
+
+* alert deduplication
+* incident grouping
+* severity levels
+* alert fingerprints
+* temporal correlation
+* service dependency correlation
+
+Avoid creating duplicate incidents for the same root problem.
+
+This is an important distributed-systems interview talking point.
+
+==================================================
+INCIDENT MODEL
+==============
+
+Incident fields should include:
+
+id
+title
+description
+severity
+status
+service
+createdAt
+updatedAt
+detectedAt
+resolvedAt
+rootCause
+confidence
+evidence
+timeline
+relatedAlerts
+relatedDeployments
+agentRunId
+remediationPlan
+approvalState
+
+Statuses:
+
+OPEN
+INVESTIGATING
+MITIGATING
+AWAITING_APPROVAL
+RESOLVED
+CLOSED
+
+==================================================
+AGENTIC AI ARCHITECTURE
+=======================
+
+This is one of the most important parts.
+
+Do NOT build one giant chatbot.
+
+Build a tool-using agent system.
+
+Possible architecture:
+
+Incident Manager Agent
+|
++-- Metrics Agent
+|
++-- Logs Agent
+|
++-- Traces Agent
+|
++-- Deployment Agent
+|
++-- Dependency Agent
+|
++-- Root Cause Agent
+|
++-- Remediation Agent
+
+Do not create unnecessary agents.
+
+Every agent must have a clear responsibility.
+
+The orchestrator should maintain state.
+
+The agent should be capable of:
+
+1. receiving incident context
+2. selecting tools
+3. calling tools
+4. observing results
+5. updating hypotheses
+6. gathering more evidence
+7. deciding when enough evidence exists
+8. producing root-cause analysis
+9. creating remediation recommendations
+10. requesting approval when required
+11. executing approved actions
+12. verifying results
+13. producing a final postmortem
+
+==================================================
+AGENT TOOLS
+===========
+
+Implement actual tools.
+
+Examples:
+
+get_service_health(service)
+get_service_metrics(service, window)
+query_logs(service, filters)
+get_trace(trace_id)
+get_recent_deployments(service)
+get_dependency_graph(service)
+compare_deployments(service, oldVersion, newVersion)
+get_incident_history(service)
+get_error_samples(service)
+get_database_health()
+get_cache_health()
+rollback_deployment(service, version)
+restart_service(service)
+scale_service(service, replicas)
+disable_feature_flag(flag)
+verify_incident_recovery(incident)
+
+Do not give the LLM direct unrestricted access to the system.
+
+Use typed tool schemas.
+
+Validate parameters.
+
+Log every tool invocation.
+
+==================================================
+TOOL EXECUTION SAFETY
+=====================
+
+Separate tools into:
+
+READ_ONLY
+and
+MUTATING
+
+Example read-only:
+
+get logs
+get metrics
+get traces
+get deployment info
+
+Mutating:
+
+rollback
+restart
+scale
+disable feature
+
+Dangerous tools must require human approval.
+
+Example:
+
+AI proposes:
+
+"Rollback payment-service from v1.8.3 to v1.8.2"
+
+UI:
+
+Risk: MEDIUM
+
+Evidence:
+
+* DB pool utilization: 96%
+* failure rate: 18.2%
+* deployment occurred 51 seconds before incident
+* v1.8.2 baseline is healthy
+
+[Approve]
+[Reject]
+
+Only after approval can the mutation execute.
+
+==================================================
+ROOT CAUSE ANALYSIS
+===================
+
+Do not let the LLM invent evidence.
+
+Every root-cause statement must reference concrete evidence.
+
+Example:
+
+ROOT CAUSE
+
+Payment service v1.8.3 introduced a database connection leak.
+
+Evidence:
+
+1. DB connection usage increased from 41% to 96%.
+2. Error rate increased 47 seconds after deployment.
+3. 86% of failing requests include the payment repository call.
+4. v1.8.2 shows normal connection utilization.
+5. Restarting the payment service restores connection utilization.
+
+Confidence: 91%
+
+Use evidence-backed reasoning.
+
+==================================================
+HYPOTHESIS ENGINE
+=================
+
+Implement explicit hypotheses.
+
+Example:
+
+H1: Database failure
+H2: Payment deployment regression
+H3: Network degradation
+H4: Downstream API failure
+
+Each hypothesis should accumulate evidence.
+
+Store:
+
+hypothesis
+supportingEvidence
+contradictingEvidence
+confidence
+status
+
+The agent should be able to eliminate hypotheses.
+
+This makes the AI behavior much more explainable and interview-worthy.
+
+==================================================
+INCIDENT TIMELINE
+=================
+
+Every incident should have a timeline.
+
+Example:
+
+14:02:10 deployment v1.8.3
+14:03:01 latency increase
+14:03:15 error-rate threshold exceeded
+14:03:17 incident created
+14:03:18 agent started
+14:03:19 queried metrics
+14:03:20 queried logs
+14:03:21 inspected deployment
+14:03:22 root cause identified
+14:03:24 remediation proposed
+14:03:40 human approved
+14:03:43 rollback executed
+14:03:55 recovery verified
+14:04:01 incident resolved
+
+This should update in real time in the UI.
+
+==================================================
+AGENT ACTIVITY UI
+=================
+
+Build an excellent agent activity interface.
+
+Example:
+
+Agent Investigation
+
+✓ Received incident #1042
+✓ Queried payment-service metrics
+✓ Queried error logs
+✓ Retrieved recent deployment
+✓ Compared v1.8.2 vs v1.8.3
+✓ Inspected dependency graph
+✓ Generated 4 hypotheses
+✓ Eliminated 3 hypotheses
+✓ Identified probable root cause
+✓ Generated remediation plan
+
+Clicking an activity should show:
+
+Tool
+Input
+Output
+Duration
+Status
+Evidence used
+
+This should look like an engineering debugging interface, not a chatbot.
+
+==================================================
+POSTMORTEM GENERATOR
+====================
+
+After incident resolution generate:
+
+* incident summary
+* impact
+* timeline
+* root cause
+* contributing factors
+* remediation
+* preventive actions
+* detection quality
+* agent performance
+
+Allow export to Markdown.
+
+==================================================
+INCIDENT REPLAY SYSTEM
+======================
+
+This is REQUIRED.
+
+Create deterministic incident scenarios.
+
+At minimum:
+
+1. database connection exhaustion
+2. bad deployment
+3. memory leak
+4. Redis/cache outage
+5. queue consumer lag
+6. downstream API timeout
+
+Each scenario must be reproducible.
+
+Provide:
+
+[Run Scenario]
+
+The same scenario should generate predictable telemetry and allow the agent to investigate it.
+
+==================================================
+AGENT EVALUATION
+================
+
+Create an Evaluation system.
+
+For every scenario record:
+
+* detection latency
+* investigation latency
+* number of tool calls
+* number of incorrect tool calls
+* root cause accuracy
+* remediation success
+* recovery verification success
+* total agent steps
+* model used
+* token usage if available
+* failure reason
+
+Create a dashboard:
+
+Agent Evaluation
+
+Scenario                 Success
+DB connection leak       100%
+Bad deployment            90%
+Redis outage              95%
+Queue lag                 90%
+
+Do NOT fabricate performance metrics.
+
+Only display measured results from actual runs.
+
+==================================================
+AI PROVIDER ABSTRACTION
+=======================
+
+Create a provider interface.
+
+For example:
+
+LLMProvider
+
+methods:
+
+generate()
+stream()
+structuredOutput()
+toolCall()
+
+Implement:
+
+1. OllamaProvider
+2. DemoProvider
+
+The DemoProvider must allow the public deployed demo to run without requiring an external paid API.
+
+The OllamaProvider is used locally for real AI reasoning.
+
+Use a model that runs reasonably on consumer hardware.
+
+Provide documentation for:
+
+ollama pull <model>
+
+Do not hard-code one provider throughout the system.
+
+==================================================
+DATABASE DESIGN
+===============
+
+Create a proper relational model.
+
+Potential tables:
+
+users
+projects
+repositories
+repository_files
+code_analysis_runs
+code_findings
+services
+deployments
+telemetry_events
+alerts
+incidents
+incident_events
+hypotheses
+agent_runs
+agent_steps
+tool_calls
+remediation_plans
+approval_requests
+evaluation_runs
+evaluation_results
+
+Use migrations.
+
+Add indexes intentionally.
+
+Document the important indexing decisions.
+
+Do not over-normalize everything.
+
+==================================================
+EVENT-DRIVEN DESIGN
+===================
+
+Use domain events.
+
+Examples:
+
+RepositoryAnalysisStarted
+RepositoryAnalysisCompleted
+DeploymentCreated
+TelemetryReceived
+AlertTriggered
+IncidentCreated
+IncidentInvestigationStarted
+HypothesisUpdated
+RemediationProposed
+RemediationApproved
+RemediationExecuted
+IncidentResolved
+
+Use an event envelope:
+
+eventId
+eventType
+timestamp
+source
+correlationId
+causationId
+payload
+schemaVersion
+
+Implement idempotent consumers.
+
+Explain how duplicate events are handled.
+
+==================================================
+SYSTEM RELIABILITY
+==================
+
+Implement:
+
+* retries
+* exponential backoff
+* idempotency
+* timeout handling
+* dead-letter handling
+* request validation
+* circuit breaking where appropriate
+* graceful degradation
+
+Do not add these just as comments.
+
+Implement them where they matter.
+
+==================================================
+CACHING
+=======
+
+Use caching intelligently.
+
+Good candidates:
+
+* service metadata
+* repository metadata
+* expensive code-analysis results
+* incident summaries
+* dependency graphs
+
+Document:
+
+cache key
+TTL
+invalidation strategy
+consistency tradeoff
+
+==================================================
+SECURITY
+========
+
+Implement:
+
+* authentication
+* authorization
+* secure password handling
+* session/token strategy
+* input validation
+* rate limiting
+* CORS policy
+* secret management
+* safe tool execution
+* audit logs
+
+Never expose API keys to the frontend.
+
+Never commit secrets.
+
+Add .env.example.
+
+==================================================
+OBSERVABILITY
+=============
+
+Instrument the application.
+
+Include:
+
+* structured logging
+* metrics
+* traces
+* correlation IDs
+* request IDs
+* agent run IDs
+* incident IDs
+
+Use:
+
+OpenTelemetry
+Prometheus
+Grafana
+Jaeger
+
+Create a local observability docker-compose setup.
+
+The dashboard should expose meaningful metrics such as:
+
+request latency
+error rate
+incident count
+agent execution time
+tool-call latency
+service health
+queue lag
+
+==================================================
+API DESIGN
+==========
+
+Use versioned APIs.
+
+Example:
+
+/api/v1/auth/*
+/api/v1/repositories/*
+/api/v1/analysis/*
+/api/v1/services/*
+/api/v1/incidents/*
+/api/v1/agents/*
+/api/v1/evaluations/*
+
+Use consistent error responses.
+
+Example:
+
+{
+"error": {
+"code": "INCIDENT_NOT_FOUND",
+"message": "...",
+"requestId": "..."
+}
+}
+
+==================================================
+REAL-TIME COMMUNICATION
+=======================
+
+Use WebSockets or Server-Sent Events where useful.
+
+Use real-time updates for:
+
+* incident state
+* agent activity
+* service health
+* incident timeline
+* telemetry summaries
+
+Do not poll every second unnecessarily.
+
+==================================================
+DEVELOPER EXPERIENCE
+====================
+
+The repository must be easy for another engineer to run.
+
+At root:
+
+README.md
+docker-compose.yml
+.env.example
+Makefile OR task runner
+docs/
+architecture/
+scripts/
+
+Provide commands such as:
+
+make setup
+make dev
+make test
+make lint
+make build
+make demo
+make down
+
+Or equivalent npm scripts if more suitable.
+
+One command should start the complete local demo.
+
+==================================================
+DOCKER
+======
+
+Create containers for all required services.
+
+Provide:
+
+docker-compose.yml
+
+Potential services:
+
+frontend
+api
+worker
+database
+redis
+observability
+otel-collector
+prometheus
+grafana
+jaeger
+
+Do not add containers that don't serve a purpose.
+
+==================================================
+TESTING
+=======
+
+Testing is mandatory.
+
+Add:
+
+unit tests
+integration tests
+API tests
+workflow tests
+agent tool tests
+scenario tests
+frontend tests where appropriate
+
+Test critical flows:
+
+1. repository analysis
+2. incident creation
+3. agent investigation
+4. human approval
+5. remediation
+6. recovery verification
+
+Add a test ensuring duplicate events do not create duplicate incidents.
+
+==================================================
+CI/CD
+=====
+
+Use GitHub Actions.
+
+Pipeline:
+
+lint
+test
+build
+security checks
+
+The CI must be free.
+
+Do not require paid GitHub features.
+
+==================================================
+PUBLIC DEMO
+===========
+
+The recruiter must be able to visit the deployed site and immediately understand the project.
+
+Create a demo environment containing:
+
+sample repositories
+sample services
+sample telemetry
+sample incidents
+sample agent runs
+
+The site must work without requiring the recruiter to configure an API key.
+
+The public demo should contain a safe deterministic simulation.
+
+Example:
+
+/demo
+
+shows:
+
+"Incident #1042: Payment Service Degraded"
+
+Then recruiter can click:
+
+"Run AI Investigation"
+
+and see the complete process.
+
+The public demo should demonstrate the architecture honestly.
+
+If real local LLM inference cannot run in the free deployment environment, the deployed demo should use the DemoProvider while local development uses Ollama.
+
+Clearly label demo mode.
+
+Never pretend deterministic responses are live LLM reasoning.
+
+==================================================
+DEPLOYMENT
+==========
+
+Prefer:
+
+Frontend:
+Cloudflare Pages / Workers Static Assets
+
+Backend:
+Cloudflare Workers where practical
+
+Database:
+Cloudflare D1
+
+State/cache:
+KV or Durable Objects where justified
+
+For components that cannot reasonably run on Cloudflare free infrastructure, keep them local and provide a deployment-safe simulation.
+
+Do NOT use AWS.
+
+Do NOT use paid managed Kafka.
+
+Do NOT use paid Redis.
+
+Do NOT use paid Postgres.
+
+Do NOT use paid LLM APIs.
+
+Do NOT use paid observability SaaS.
+
+The deployed architecture can intentionally be smaller than the local distributed architecture, but the design must remain conceptually consistent.
+
+Document:
+
+LOCAL ARCHITECTURE
+
+and
+
+FREE DEPLOYMENT ARCHITECTURE
+
+separately.
+
+==================================================
+ARCHITECTURE DOCUMENTATION
+==========================
+
+Create:
+
+docs/architecture/overview.md
+docs/architecture/data-flow.md
+docs/architecture/agent-system.md
+docs/architecture/event-driven-design.md
+docs/architecture/database.md
+docs/architecture/reliability.md
+docs/architecture/security.md
+docs/architecture/deployment.md
+docs/architecture/tradeoffs.md
+
+Create architecture diagrams using Mermaid.
+
+Include diagrams for:
+
+1. high-level architecture
+2. request flow
+3. incident lifecycle
+4. agent architecture
+5. event-driven architecture
+6. database relationships
+7. deployment architecture
+
+==================================================
+DESIGN TRADEOFFS
+================
+
+Create a tradeoffs document.
+
+Discuss:
+
+Kafka vs Redis Streams
+Postgres vs D1
+Temporal vs database-backed workflows
+WebSockets vs SSE
+LLM reasoning vs deterministic analysis
+centralized orchestration vs distributed agents
+strong consistency vs eventual consistency
+cache consistency
+retry vs duplicate execution
+human approval vs autonomous remediation
+
+This is important because the project should be interview-friendly.
+
+==================================================
+PERFORMANCE
+===========
+
+Add reasonable performance instrumentation.
+
+Measure:
+
+API latency
+analysis duration
+agent latency
+tool-call latency
+event-processing latency
+
+Use load testing tools that are free and open-source, for example:
+
+k6
+or
+Apache JMeter
+
+Do not fabricate benchmarks.
+
+Include reproducible benchmark instructions.
+
+==================================================
+UI DETAILS
+==========
+
+Dashboard sections:
+
+Overview
+Services
+Incidents
+Repositories
+Agent Activity
+Evaluations
+System Health
+
+Overview cards:
+
+Active Incidents
+Healthy Services
+Degraded Services
+Agent Runs
+Resolved Today
+
+Service page:
+
+Health
+Error rate
+Latency
+Requests
+Deployments
+Dependencies
+Recent Logs
+Traces
+Incident History
+
+Incident page:
+
+Header
+Severity
+Status
+Timeline
+Root Cause
+Evidence
+Agent Activity
+Hypotheses
+Remediation
+Approval
+Resolution
+
+Repository page:
+
+Repo health
+Languages
+Files
+Complexity
+Dependencies
+AI Findings
+Risk hotspots
+Analysis history
+
+Evaluation page:
+
+Scenario performance
+Accuracy
+Resolution rate
+Median investigation time
+Tool calls
+Failure analysis
+
+==================================================
+VISUAL POLISH
+=============
+
+The application must look finished.
+
+Do not leave:
+
+TODO UI
+placeholder cards
+dummy lorem ipsum
+unstyled errors
+browser alerts
+raw JSON everywhere
+default browser forms
+inconsistent buttons
+random spacing
+
+Add:
+
+loading states
+empty states
+error states
+skeleton loaders
+toasts
+confirmation dialogs
+keyboard navigation
+tooltips
+accessible labels
+
+Use consistent typography and spacing.
+
+==================================================
+CODE QUALITY
+============
+
+Follow:
+
+SOLID where useful
+single responsibility
+clear interfaces
+dependency inversion
+domain-oriented structure
+typed APIs
+clear naming
+
+Avoid:
+
+giant files
+god classes
+god components
+deeply coupled modules
+copy/paste implementations
+magic numbers
+hard-coded secrets
+LLM logic inside controllers
+database logic everywhere
+frontend business logic duplicated across pages
+
+==================================================
+REPOSITORY STRUCTURE
+====================
+
+Prefer a structure resembling:
+
+/
+├── apps/
+│   ├── web/
+│   ├── api/
+│   ├── agent/
+│   ├── extension/
+│   └── simulator/
+│
+├── packages/
+│   ├── shared/
+│   ├── types/
+│   ├── ui/
+│   └── config/
+│
+├── infrastructure/
+│   ├── docker/
+│   ├── cloudflare/
+│   └── scripts/
+│
+├── docs/
+│   ├── architecture/
+│   ├── api/
+│   └── decisions/
+│
+├── tests/
+│
+├── docker-compose.yml
+├── README.md
+└── .env.example
+
+Adapt this structure to the existing project rather than forcing it blindly.
+
+==================================================
+ARCHITECTURE DECISION RECORDS
+=============================
+
+Create ADRs for important decisions.
+
+Examples:
+
+ADR-001 Repository architecture
+ADR-002 Event-driven design
+ADR-003 Agent orchestration
+ADR-004 AI provider abstraction
+ADR-005 Free deployment architecture
+ADR-006 Incident correlation
+ADR-007 Human-in-the-loop safety
+
+==================================================
+RESUME OPTIMIZATION
+===================
+
+This project must ultimately support strong resume bullets.
+
+Design the implementation to make these types of claims truthful:
+
+* Built an agentic incident response platform using event-driven architecture.
+* Correlated logs, metrics, traces, deployments and service dependencies to identify root causes.
+* Implemented tool-using agents with human-approved remediation workflows.
+* Built deterministic incident replay and agent evaluation infrastructure.
+* Instrumented distributed services with OpenTelemetry.
+* Designed fault-tolerant workflows with retries, idempotency and recovery verification.
+* Built a free-to-deploy cloud architecture using open-source technologies and serverless infrastructure.
+
+Do NOT add fake numbers.
+
+Do NOT invent user counts.
+
+Do NOT claim production scale that was never achieved.
+
+Only use measurable numbers generated from actual tests.
+
+==================================================
+FAANG INTERVIEW VALUE
+=====================
+
+While building, explicitly identify places where system-design discussion is possible.
+
+For example:
+
+How does incident deduplication work?
+
+How does the system avoid duplicate remediation?
+
+What happens if the agent crashes?
+
+How is agent state persisted?
+
+How do you resume an investigation?
+
+How do you prevent the same event from being processed twice?
+
+How do you guarantee a remediation action is not executed twice?
+
+How do services communicate?
+
+How do you scale the telemetry pipeline?
+
+How do you reduce LLM cost?
+
+How do you prevent hallucinated root causes?
+
+How do you secure agent tools?
+
+How does human approval work?
+
+How do you handle partial failures?
+
+How does the system behave when the LLM is unavailable?
+
+How do you evaluate an agent?
+
+How does the system handle backpressure?
+
+Document answers to these questions.
+
+==================================================
+IMPORTANT AI ENGINEERING PRINCIPLES
+===================================
+
+Do NOT build "AI magic".
+
+The architecture should follow:
+
+Tools provide evidence.
+Deterministic systems compute facts.
+The LLM reasons over evidence.
+The orchestrator controls workflow.
+Humans control dangerous mutations.
+
+The LLM must not be the source of truth for:
+
+metrics
+logs
+deployment state
+service state
+incident state
+
+Those come from actual systems.
+
+==================================================
+MVP PRIORITY
+============
+
+Do not attempt to build every feature at once.
+
+Implement in this order:
+
+PHASE 1
+
+* repository audit
+* architecture cleanup
+* web application
+* backend foundation
+* authentication
+* database
+* CodeLens web interface
+
+PHASE 2
+
+* service simulator
+* telemetry
+* incidents
+* dashboard
+
+PHASE 3
+
+* agent tools
+* agent orchestration
+* hypotheses
+* root cause analysis
+
+PHASE 4
+
+* human approval
+* remediation
+* recovery verification
+
+PHASE 5
+
+* evaluation
+* incident replay
+* observability
+* performance testing
+
+PHASE 6
+
+* deployment
+* documentation
+* visual polish
+* demo experience
+
+Do not over-engineer before the core loop works.
+
+==================================================
+CORE DEMO LOOP
+==============
+
+The most important end-to-end flow is:
+
+1. Start demo environment
+2. Inject failure
+3. Telemetry detects anomaly
+4. Incident created
+5. Agent investigates
+6. Agent calls tools
+7. Agent generates hypotheses
+8. Agent identifies root cause
+9. Agent proposes remediation
+10. Human approves
+11. Remediation executes
+12. System verifies recovery
+13. Incident resolves
+14. Postmortem generated
+15. Evaluation recorded
+
+This flow must work end-to-end before optional features are prioritized.
+
+==================================================
+FINAL QUALITY BAR
+=================
+
+Before considering the project complete, verify:
+
+* clean architecture
+* working frontend
+* working backend
+* working database
+* working authentication
+* working CodeLens
+* working service simulator
+* working telemetry
+* working incident lifecycle
+* working agent
+* working tools
+* working human approval
+* working remediation
+* working recovery verification
+* working incident replay
+* working evaluation
+* working local Docker environment
+* working tests
+* working CI
+* working public demo
+* complete documentation
+* polished UX
+* no paid dependencies
+* no secrets committed
+* no fake metrics
+* no broken routes
+* no placeholder content
+
+==================================================
+EXECUTION RULES
+===============
+
+1. Inspect first.
+2. Explain the existing architecture internally.
+3. Reuse working code.
+4. Refactor incrementally.
+5. Keep the project runnable after each major phase.
+6. Prefer simple reliable solutions over unnecessary complexity.
+7. Do not introduce a technology just so the resume contains its name.
+8. Every technology must have a reason to exist.
+9. Prefer open-source technologies.
+10. Prefer free infrastructure.
+11. Never introduce a paid dependency without an explicit alternative.
+12. Never fabricate benchmark results.
+13. Never fabricate user metrics.
+14. Never hard-code secrets.
+15. Add tests as features are built.
+16. Keep documentation synchronized with implementation.
+17. Prioritize the core incident-response loop.
+18. Make the final experience visually excellent.
+19. Make the project easy for a recruiter to run.
+20. Make the architecture easy to explain during a system-design interview.
+
+==================================================
+FINAL DELIVERABLE
+=================
+
+At completion, provide:
+
+1. finished application
+2. public deployment
+3. browser extension integrated with the platform
+4. complete README
+5. architecture diagrams
+6. deployment instructions
+7. local development instructions
+8. demo instructions
+9. test suite
+10. GitHub Actions CI
+11. ADRs
+12. system design explanation
+13. resume-ready project description
+14. 2-minute recruiter demo flow
+15. list of technologies actually used
+16. explanation of why each technology exists
+17. explanation of what is local-only vs publicly deployed
+
+The end product should feel like a serious software infrastructure project created by a strong software engineer, not a collection of AI features.
+
+Start by auditing the repository and producing the current architecture plus a migration strategy. Do not delete or rewrite major portions before understanding what is already there.
+
+
+==================================================
+ABSOLUTE $0 COST / NO-BILLING REQUIREMENT
+=========================================
+
+THIS IS A HARD REQUIREMENT.
+
+The entire project must be designed and implemented so that I can build, run, test, deploy, and publicly demo it without receiving ANY BILL.
+
+Target cost: $0/month.
+
+Do NOT choose a service merely because it has a "free tier."
+
+A service is acceptable ONLY if:
+
+1. The required functionality can remain within its permanent free allowance for this project.
+2. The project does not require upgrading to a paid plan.
+3. The project does not require paid credits.
+4. The project does not require a paid subscription.
+5. The project does not depend on a free trial.
+6. The project does not require a paid domain.
+7. The project does not require a credit card for the core setup where avoidable.
+8. Exceeding the intended demo usage must NOT unexpectedly create charges.
+9. The architecture must include usage limits and safeguards where a service could otherwise incur charges.
+10. Prefer completely local/open-source components whenever possible.
+
+The application must be designed for portfolio/demo traffic, not large-scale production traffic.
+
+==================================================
+NO PAID CLOUD SERVICES
+======================
+
+Do NOT use:
+
+* AWS
+* AWS Free Tier
+* Google Cloud
+* Azure
+* paid Kubernetes clusters
+* paid databases
+* paid Redis
+* paid Kafka
+* paid queues
+* paid object storage
+* paid monitoring
+* paid logging
+* paid authentication services
+* paid vector databases
+* paid LLM APIs
+
+Do not assume that an "AWS Free Tier" account means $0 forever.
+
+Do not design the system around AWS.
+
+==================================================
+NO PAID AI APIs
+===============
+
+Do NOT require:
+
+* OpenAI API
+* Anthropic API
+* Gemini API
+* Groq paid usage
+* OpenRouter paid usage
+* any other metered commercial LLM API
+
+Primary AI implementation:
+
+OLLAMA + LOCAL OPEN-SOURCE MODEL
+
+The application must work locally with an open-source model.
+
+Also implement:
+
+DEMO / DETERMINISTIC AI PROVIDER
+
+This allows the deployed public demo to work without any paid AI API.
+
+The LLM provider must be abstracted behind an interface so the application is not tightly coupled to one model.
+
+==================================================
+SAFE DEPLOYMENT
+===============
+
+Use only infrastructure with a permanent $0 option that is suitable for a small portfolio demo.
+
+Preferred direction:
+
+Frontend:
+Cloudflare Pages / Workers
+
+Backend:
+Cloudflare Workers where practical
+
+Database:
+Cloudflare D1 where appropriate
+
+Static assets:
+Cloudflare Pages / Workers static assets
+
+Other components:
+Keep local when they would introduce billing risk.
+
+IMPORTANT:
+
+Before selecting ANY cloud service, verify its CURRENT pricing and free allowance.
+
+Do not assume something is free.
+
+Document:
+
+SERVICE
+FREE LIMIT
+EXPECTED PROJECT USAGE
+WHY IT WILL REMAIN $0
+
+Example:
+
+Cloudflare Workers
+Free allowance: <current verified allowance>
+Expected demo usage: low
+Estimated usage: comfortably below allowance
+Expected cost: $0
+
+If a service cannot confidently remain at $0 for this project, DO NOT USE IT.
+
+==================================================
+BILLING SAFETY
+==============
+
+Where the platform supports usage limits, configure conservative limits.
+
+Examples:
+
+* request limits
+* rate limits
+* maximum repository size
+* maximum analysis size
+* maximum incident replay frequency
+* maximum telemetry volume
+* maximum retention
+* maximum agent execution steps
+* maximum file count
+* maximum API requests
+
+The application should fail safely rather than generating unexpected resource consumption.
+
+For example:
+
+MAX_REPOSITORY_SIZE = 25 MB
+
+MAX_FILES_PER_ANALYSIS = 500
+
+MAX_AGENT_STEPS = 25
+
+MAX_TOOL_CALLS_PER_RUN = 30
+
+MAX_TELEMETRY_EVENTS_PER_MINUTE = 500
+
+These limits are for cost and reliability protection.
+
+Make them configurable.
+
+==================================================
+LOCAL-FIRST ARCHITECTURE
+========================
+
+The project must be fully runnable locally without any cloud account.
+
+Local stack may include:
+
+Docker
+Docker Compose
+PostgreSQL
+Redis
+Kafka or Redis Streams
+OpenTelemetry
+Prometheus
+Grafana
+Jaeger
+Ollama
+
+All of these must be open-source and locally runnable.
+
+The local version should provide the complete engineering experience.
+
+==================================================
+FREE PUBLIC DEMO ARCHITECTURE
+=============================
+
+The public deployment does NOT need to run every heavy infrastructure component continuously.
+
+The public version should be optimized for:
+
+* recruiter demos
+* low traffic
+* predictable cost
+* reliability
+* simplicity
+
+It may use:
+
+Frontend:
+free serverless/static hosting
+
+API:
+free serverless functions
+
+Database:
+free serverless database
+
+AI:
+deterministic demo provider
+
+Observability:
+pre-generated/sample data where necessary
+
+Heavy components such as Kafka, Prometheus, Grafana, Jaeger, Ollama and complex worker infrastructure can remain local for the full architecture demonstration.
+
+Clearly document the difference:
+
+LOCAL FULL SYSTEM
+vs
+PUBLIC FREE DEMO
+
+Do not pretend the public demo is running infrastructure that is actually only local.
+
+==================================================
+COST DOCUMENTATION
+==================
+
+Create:
+
+docs/free-deployment.md
+
+This document MUST explain:
+
+1. Every external service
+2. Why it was selected
+3. Its verified free allowance
+4. Expected project usage
+5. Why the expected usage remains within $0
+6. What happens when limits are reached
+7. How to disable/delete the deployment
+8. Which components are local-only
+
+Also create:
+
+docs/cost-safety.md
+
+Include all application-level usage limits.
+
+==================================================
+NO HIDDEN COSTS
+===============
+
+Check for hidden costs such as:
+
+* DNS
+* custom domains
+* outbound bandwidth
+* database overages
+* function invocations
+* build minutes
+* storage
+* egress
+* logs
+* AI tokens
+* monitoring
+* email
+* authentication
+* image processing
+* file storage
+
+Use free alternatives or local implementations wherever possible.
+
+==================================================
+PRE-DEPLOYMENT COST CHECK
+=========================
+
+Before finalizing deployment, perform a cost audit.
+
+Create:
+
+docs/cost-audit.md
+
+For every service:
+
+Service
+Purpose
+Free Plan
+Expected Usage
+Potential Overages
+Billing Risk
+Decision
+
+Any service marked HIGH billing risk must be replaced.
+
+The final architecture must have:
+
+EXPECTED MONTHLY COST = $0
+
+and must not depend on promotional credits or free trials.
+
+==================================================
+FINAL ACCEPTANCE CRITERION
+==========================
+
+Do NOT consider the project complete until you can truthfully say:
+
+"I can run the entire project locally for free and publicly deploy the portfolio demo using permanent $0/free-tier infrastructure without intentionally purchasing any service or API."
+
+If any required component can unexpectedly generate a bill, redesign that component before completion.

@@ -1,0 +1,63 @@
+name: TaskForge release rehearsal
+on:
+  workflow_dispatch:
+    inputs:
+      public_run_id:
+        description: Optional public control-plane run ID
+        type: string
+        required: false
+      candidate:
+        description: Prepared candidate
+        type: choice
+        options: [defective, baseline, corrected]
+        default: defective
+permissions:
+  contents: read
+concurrency:
+  group: taskforge-rehearsal
+  cancel-in-progress: false
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: taskforge
+          POSTGRES_USER: taskforge
+          POSTGRES_PASSWORD: taskforge
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U taskforge"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TASKFORGE_DATABASE_URL: postgresql://taskforge:taskforge@localhost:5432/taskforge
+      AI_PROVIDER: demo
+      PLAYWRIGHT_JOURNEYS: 'true'
+      DATABASE_URL: ./data/ci-rehearsal.db
+      PUBLIC_RUN_ID: ${{ inputs.public_run_id }}
+      CANDIDATE: ${{ inputs.candidate }}
+      REHEARSAL_CALLBACK_URL: ${{ vars.REHEARSAL_CALLBACK_URL }}
+      REHEARSAL_CALLBACK_TOKEN: ${{ secrets.REHEARSAL_CALLBACK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @codelens/api exec playwright install --with-deps chromium
+      - run: pnpm --filter @codelens/db migrate
+      - run: pnpm --filter @codelens/api rehearsal:ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taskforge-evidence
+          path: apps/web/public/evidence/taskforge-recorded.json
+          retention-days: 1

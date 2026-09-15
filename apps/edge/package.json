@@ -1,0 +1,17 @@
+{
+  "name": "@codelens/edge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "node prepare-assets.mjs && wrangler dev",
+    "deploy": "node prepare-assets.mjs && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply codelens-metadata --remote"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250901.0",
+    "wrangler": "^4.0.0",
+    "typescript": "^5.6.3"
+  }
+}

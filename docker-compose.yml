@@ -1,0 +1,75 @@
+services:
+  bootstrap:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile=false && pnpm run setup"
+    environment:
+      DATABASE_URL: /workspace/data/codelens.db
+    volumes:
+      - .:/workspace
+      - codelens_node_modules:/workspace/node_modules
+      - codelens_data:/workspace/data
+
+  api:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: sh -c "corepack enable && pnpm dev:api"
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      DATABASE_URL: /workspace/data/codelens.db
+      AI_PROVIDER: demo
+      JWT_SECRET: ${JWT_SECRET:-change-this-before-exposing-the-api}
+      CORS_ORIGIN: http://localhost:3000
+    volumes:
+      - .:/workspace
+      - codelens_node_modules:/workspace/node_modules
+      - codelens_data:/workspace/data
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+
+  web:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: sh -c "corepack enable && pnpm dev:web --host 0.0.0.0"
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:4000
+    volumes:
+      - .:/workspace
+      - codelens_node_modules:/workspace/node_modules
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: ["observability"]
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    profiles: ["observability"]
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+    profiles: ["observability"]
+    ports:
+      - "16686:16686"
+
+volumes:
+  codelens_node_modules:
+  codelens_data:

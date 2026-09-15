@@ -1,0 +1,26 @@
+name = "codelens-demo"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[assets]
+directory = ".wrangler/assets"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "codelens-metadata"
+database_id = "REPLACE_WITH_CREATED_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+# Set to the public repository hosting this exact, reviewed fixture workflow.
+GITHUB_REPOSITORY = "REPLACE_OWNER/REPLACE_REPOSITORY"
+GITHUB_REF = "master"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Configure GITHUB_DISPATCH_TOKEN and REHEARSAL_CALLBACK_TOKEN using wrangler secret put.

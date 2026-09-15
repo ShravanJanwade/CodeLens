@@ -1,0 +1,1346 @@
+{
+  "repository": {
+    "id": "taskforge",
+    "name": "TaskForge",
+    "owner": "examples",
+    "fullName": "examples/taskforge",
+    "url": null,
+    "defaultBranch": "main",
+    "language": "TypeScript",
+    "description": "Prepared issue-tracker example. Explore indexed source, compare releases, and verify a supplied correction.",
+    "lastAnalyzedAt": "2026-09-13T05:43:36.258Z",
+    "riskScore": 24,
+    "healthStatus": "healthy",
+    "userId": null,
+    "createdAt": "2026-09-13T01:04:30.365Z",
+    "updatedAt": "2026-09-13T05:43:36.258Z"
+  },
+  "revisions": {
+    "baseline": "59e432f9ee4baf077a5350cb14a8ef4d1faeadba",
+    "defective": "23325694409581115ebdcfadf1d9ce4a4d696435",
+    "corrected": "61323d303759af01618ba6354ea3ded737c1dd2e"
+  },
+  "digest": "836c3809475f0dc85e518fcb4ce5beb56feb28d1f6bd0730e67a76cc777890b8",
+  "snapshots": [
+    {
+      "revision": "59e432f9ee4baf077a5350cb14a8ef4d1faeadba",
+      "run": {
+        "id": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+        "repositoryId": "taskforge",
+        "status": "completed",
+        "branch": "baseline",
+        "commitSha": "59e432f9ee4baf077a5350cb14a8ef4d1faeadba",
+        "coverage": "{\"languages\":[\"TypeScript\"],\"parser\":\"TypeScript compiler AST for JS/TS; heuristics for Python/Java\",\"limits\":{\"maxFiles\":500,\"maxBytes\":26214400,\"maxFileBytes\":1000000},\"bounded\":false,\"skippedForSize\":0,\"binaryFiles\":0,\"excluded\":[\".git\",\"node_modules\",\"dist\",\"build\",\"coverage\",\".next\",\"vendor\"],\"limitations\":\"Source files only; binary files and symlinks skipped. Relative import graph is incomplete; complexity and security checks are heuristics.\",\"summary\":\"Indexed 4 source files across TypeScript. src/app.ts: 4 imports; src/revision.ts: 0 imports; src/serve.ts: 1 imports; src/storage.ts: 3 imports. This is a deterministic source summary; no AI interpretation is required.\"}",
+        "progress": 100,
+        "filesProcessed": 4,
+        "totalFiles": 4,
+        "symbolsIndexed": 49,
+        "findingsCount": 2,
+        "startedAt": "2026-09-13T05:43:26.793Z",
+        "completedAt": "2026-09-13T05:43:32.421Z",
+        "error": null
+      },
+      "files": [
+        {
+          "id": "49b2536e-a2d7-480a-8a63-f6aa6077f5c8",
+          "repositoryId": "taskforge",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "path": "src/app.ts",
+          "language": "TypeScript",
+          "content": "import { createServer } from 'node:http';\r\nimport { performance } from 'node:perf_hooks';\r\nimport { randomUUID, pbkdf2Sync } from 'node:crypto';\r\nimport { createStorage } from './storage';\r\n\r\nexport const variants = ['baseline', 'defective', 'corrected'] as const;\r\nexport type Variant = (typeof variants)[number];\r\nexport interface Trace {\r\n  id: string;\r\n  endpoint: string;\r\n  status: number;\r\n  durationMs: number;\r\n  queryCount: number;\r\n  queryDurationMs: number;\r\n  queries: Array<{ sql: string; durationMs: number }>;\r\n  source: { path: string; symbol: string; mapping: 'explicit' };\r\n}\r\n\r\n// Prepared example: defective deliberately contains three real regressions.\r\n// Expected labels belong to tests; the investigator receives measured traces only.\r\nexport async function startFixture(\r\n  variant: Variant,\r\n  options: { postgresUrl?: string; workers?: number } = {},\r\n) {\r\n  if (!variants.includes(variant)) throw new Error('Unsupported fixture version');\r\n  const storage = await createStorage(options.postgresUrl);\r\n  const traces: Trace[] = [];\r\n  const reports = new Map<string, string>();\r\n  const background = new Set<ReturnType<typeof setImmediate>>();\r\n  const workers = options.workers ?? (variant === 'defective' ? 8 : 1);\r\n  const server = createServer(async (req, res) => {\r\n    const started = performance.now();\r\n    const url = new URL(req.url ?? '/', 'http://localhost');\r\n    const trace: Trace = {\r\n      id: randomUUID(),\r\n      endpoint: url.pathname,\r\n      status: 200,\r\n      durationMs: 0,\r\n      queryCount: 0,\r\n      queryDurationMs: 0,\r\n      queries: [],\r\n      source: { path: 'src/app.ts', symbol: 'startFixture', mapping: 'explicit' },\r\n    };\r\n    const query = async (sql: string, args: (string | number)[] = []) => {\r\n      const start = performance.now();\r\n      const rows = await storage.query(sql, args);\r\n      const durationMs = performance.now() - start;\r\n      trace.queryCount++;\r\n      trace.queryDurationMs += durationMs;\r\n      trace.queries.push({ sql, durationMs });\r\n      return rows;\r\n    };\r\n    const finish = (status: number, body: unknown) => {\r\n      trace.status = status;\r\n      trace.durationMs = performance.now() - started;\r\n      traces.push(trace);\r\n      res.writeHead(status, { 'content-type': 'application/json', 'x-trace-id': trace.id });\r\n      res.end(JSON.stringify(body));\r\n    };\r\n    try {\r\n      if (url.pathname === '/') {\r\n        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });\r\n        res.end(\r\n          `<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TaskForge · prepared example</title><style>body{max-width:800px;margin:60px auto;padding:20px;font:16px system-ui;background:#101820;color:#deece5}button{padding:12px 18px;margin:12px 8px 12px 0;border-radius:6px;border:1px solid #5b8d77;background:#245640;color:white}pre{white-space:pre-wrap;padding:20px;background:#1d2b35;border-radius:8px}</style><h1>TaskForge</h1><p>Prepared issue-tracker example · signed in as Ada</p><button id=\"issues\">Load issues</button><button id=\"private\">Open private project</button><pre role=\"status\" id=\"result\">Choose a project.</pre><script>async function load(project){const response=await fetch('/api/issues?project='+project+'&size=5',{headers:{'x-user-id':'1'}});const body=await response.json();document.getElementById('result').textContent=response.status===403?'Access denied':response.status===200?body.issues.map(i=>i.title+' · '+i.commentCount+' comments').join('\\\\n'):'Request failed';}document.getElementById('issues').onclick=()=>load(1);document.getElementById('private').onclick=()=>load(2);</script></html>`,\r\n        );\r\n        return;\r\n      }\r\n      if (url.pathname === '/health') return finish(200, { status: 'ok' });\r\n      const user = Number(req.headers['x-user-id']);\r\n      if (![1, 2].includes(user)) return finish(401, { error: 'Authentication required' });\r\n      if (url.pathname === '/api/projects')\r\n        return finish(\r\n          200,\r\n          await query(\r\n            'SELECT p.* FROM projects p JOIN memberships m ON p.id=m.project_id WHERE m.user_id=?',\r\n            [user],\r\n          ),\r\n        );\r\n      if (url.pathname === '/api/issues') {\r\n        const project = Number(url.searchParams.get('project') ?? 1);\r\n        const membership = await query('SELECT user_id FROM memberships WHERE user_id=? AND project_id=?', [\r\n          user,\r\n          project,\r\n        ]);\r\n        if (!membership.length && variant !== 'defective')\r\n          return finish(403, { error: 'Project membership required' });\r\n        const size = Math.min(40, Math.max(1, Number(url.searchParams.get('size') ?? 20) || 20));\r\n        const search = url.searchParams.get('search') ?? '';\r\n        const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);\r\n        let issues: Record<string, any>[];\r\n        if (variant === 'defective') {\r\n          issues = await query(\r\n            'SELECT id,title FROM issues WHERE project_id=? AND title LIKE ? ORDER BY id LIMIT ? OFFSET ?',\r\n            [project, `%${search}%`, size, offset],\r\n          );\r\n          for (const issue of issues) {\r\n            const rows = await query('SELECT COUNT(*) AS count FROM comments WHERE issue_id=?', [issue.id]);\r\n            issue.commentCount = Number(rows[0].count);\r\n          }\r\n        } else {\r\n          issues = await query(\r\n            'SELECT i.id,i.title,COUNT(c.id) AS count FROM issues i LEFT JOIN comments c ON c.issue_id=i.id WHERE i.project_id=? AND i.title LIKE ? GROUP BY i.id,i.title ORDER BY i.id LIMIT ? OFFSET ?',\r\n            [project, `%${search}%`, size, offset],\r\n          );\r\n          issues = issues.map(({ count, ...issue }) => ({ ...issue, commentCount: Number(count) }));\r\n        }\r\n        return finish(200, { issues });\r\n      }\r\n      if (url.pathname === '/api/reports' && req.method === 'POST') {\r\n        const id = randomUUID();\r\n        reports.set(id, 'queued');\r\n        const job = setImmediate(() => {\r\n          background.delete(job);\r\n          reports.set(id, 'running');\r\n          // CPU-bound background work shares the event loop: increasing workers causes contention.\r\n          for (let i = 0; i < workers; i++) pbkdf2Sync('fixture-report', 'fixed-seed', 12_000, 32, 'sha256');\r\n          reports.set(id, 'completed');\r\n        });\r\n        background.add(job);\r\n        return finish(202, { id, status: 'queued' });\r\n      }\r\n      if (url.pathname.startsWith('/api/reports/')) {\r\n        const status = reports.get(url.pathname.split('/').pop()!);\r\n        return finish(status ? 200 : 404, { status: status ?? 'not_found' });\r\n      }\r\n      finish(404, { error: 'Not found' });\r\n    } catch {\r\n      finish(500, { error: 'Fixture request failed' });\r\n    }\r\n  });\r\n  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));\r\n  const address = server.address();\r\n  if (!address || typeof address === 'string') throw new Error('Missing fixture port');\r\n  return {\r\n    url: `http://127.0.0.1:${address.port}`,\r\n    traces,\r\n    engine: storage.engine,\r\n    workers,\r\n    async close() {\r\n      for (const job of background) clearImmediate(job);\r\n      server.closeAllConnections();\r\n      await new Promise<void>((resolve, reject) =>\r\n        server.close((error) => (error ? reject(error) : resolve())),\r\n      );\r\n      await storage.close();\r\n    },\r\n  };\r\n}\r\n",
+          "summary": "src/app.ts is a TypeScript source file with estimated complexity 55. Declared symbols: variants, Variant, Trace, startFixture, storage, traces, reports, background, workers, server, started, url. Imports: node:http, node:perf_hooks, node:crypto, ./storage. Extraction: TypeScript compiler AST.",
+          "complexity": 55,
+          "sizeBytes": 7461,
+          "imports": [
+            "node:http",
+            "node:perf_hooks",
+            "node:crypto",
+            "./storage"
+          ],
+          "symbols": [
+            {
+              "name": "variants",
+              "kind": "VariableDeclaration",
+              "line": 6,
+              "endLine": 6
+            },
+            {
+              "name": "Variant",
+              "kind": "TypeAliasDeclaration",
+              "line": 7,
+              "endLine": 7
+            },
+            {
+              "name": "Trace",
+              "kind": "InterfaceDeclaration",
+              "line": 8,
+              "endLine": 17
+            },
+            {
+              "name": "startFixture",
+              "kind": "FunctionDeclaration",
+              "line": 21,
+              "endLine": 148
+            },
+            {
+              "name": "storage",
+              "kind": "VariableDeclaration",
+              "line": 26,
+              "endLine": 26
+            },
+            {
+              "name": "traces",
+              "kind": "VariableDeclaration",
+              "line": 27,
+              "endLine": 27
+            },
+            {
+              "name": "reports",
+              "kind": "VariableDeclaration",
+              "line": 28,
+              "endLine": 28
+            },
+            {
+              "name": "background",
+              "kind": "VariableDeclaration",
+              "line": 29,
+              "endLine": 29
+            },
+            {
+              "name": "workers",
+              "kind": "VariableDeclaration",
+              "line": 30,
+              "endLine": 30
+            },
+            {
+              "name": "server",
+              "kind": "VariableDeclaration",
+              "line": 31,
+              "endLine": 130
+            },
+            {
+              "name": "started",
+              "kind": "VariableDeclaration",
+              "line": 32,
+              "endLine": 32
+            },
+            {
+              "name": "url",
+              "kind": "VariableDeclaration",
+              "line": 33,
+              "endLine": 33
+            },
+            {
+              "name": "trace",
+              "kind": "VariableDeclaration",
+              "line": 34,
+              "endLine": 43
+            },
+            {
+              "name": "query",
+              "kind": "VariableDeclaration",
+              "line": 44,
+              "endLine": 52
+            },
+            {
+              "name": "start",
+              "kind": "VariableDeclaration",
+              "line": 45,
+              "endLine": 45
+            },
+            {
+              "name": "rows",
+              "kind": "VariableDeclaration",
+              "line": 46,
+              "endLine": 46
+            },
+            {
+              "name": "durationMs",
+              "kind": "VariableDeclaration",
+              "line": 47,
+              "endLine": 47
+            },
+            {
+              "name": "finish",
+              "kind": "VariableDeclaration",
+              "line": 53,
+              "endLine": 59
+            },
+            {
+              "name": "user",
+              "kind": "VariableDeclaration",
+              "line": 69,
+              "endLine": 69
+            },
+            {
+              "name": "project",
+              "kind": "VariableDeclaration",
+              "line": 80,
+              "endLine": 80
+            },
+            {
+              "name": "membership",
+              "kind": "VariableDeclaration",
+              "line": 81,
+              "endLine": 84
+            },
+            {
+              "name": "size",
+              "kind": "VariableDeclaration",
+              "line": 87,
+              "endLine": 87
+            },
+            {
+              "name": "search",
+              "kind": "VariableDeclaration",
+              "line": 88,
+              "endLine": 88
+            },
+            {
+              "name": "offset",
+              "kind": "VariableDeclaration",
+              "line": 89,
+              "endLine": 89
+            },
+            {
+              "name": "issues",
+              "kind": "VariableDeclaration",
+              "line": 90,
+              "endLine": 90
+            },
+            {
+              "name": "issue",
+              "kind": "VariableDeclaration",
+              "line": 96,
+              "endLine": 96
+            },
+            {
+              "name": "rows",
+              "kind": "VariableDeclaration",
+              "line": 97,
+              "endLine": 97
+            },
+            {
+              "name": "id",
+              "kind": "VariableDeclaration",
+              "line": 110,
+              "endLine": 110
+            },
+            {
+              "name": "job",
+              "kind": "VariableDeclaration",
+              "line": 112,
+              "endLine": 118
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 116,
+              "endLine": 116
+            },
+            {
+              "name": "status",
+              "kind": "VariableDeclaration",
+              "line": 123,
+              "endLine": 123
+            },
+            {
+              "name": "address",
+              "kind": "VariableDeclaration",
+              "line": 132,
+              "endLine": 132
+            },
+            {
+              "name": "close",
+              "kind": "MethodDeclaration",
+              "line": 139,
+              "endLine": 146
+            },
+            {
+              "name": "job",
+              "kind": "VariableDeclaration",
+              "line": 140,
+              "endLine": 140
+            }
+          ],
+          "contentHash": "19794e4fb7417041737645a7e126861a2b0fbde284c8cdcff83aa048bed55f88",
+          "updatedAt": "2026-09-13T05:43:29.816Z"
+        },
+        {
+          "id": "eeb589d1-6f46-407c-8cae-eef16301e353",
+          "repositoryId": "taskforge",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "path": "src/revision.ts",
+          "language": "TypeScript",
+          "content": "export const variant = 'baseline';\r\n",
+          "summary": "src/revision.ts is a TypeScript source file with estimated complexity 1. Declared symbols: variant. Extraction: TypeScript compiler AST.",
+          "complexity": 1,
+          "sizeBytes": 36,
+          "imports": [],
+          "symbols": [
+            {
+              "name": "variant",
+              "kind": "VariableDeclaration",
+              "line": 1,
+              "endLine": 1
+            }
+          ],
+          "contentHash": "5c355efa3ae970e1c9c3eb0e5d5f144ed168f885cdfcc6314224b028683b1c64",
+          "updatedAt": "2026-09-13T05:43:29.882Z"
+        },
+        {
+          "id": "5c2f390f-931b-4d9b-a470-a08fb641aaa5",
+          "repositoryId": "taskforge",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "path": "src/serve.ts",
+          "language": "TypeScript",
+          "content": "import { startFixture, variants, type Variant } from './app';\r\nconst selected = process.env.TASKFORGE_VERSION ?? 'baseline';\r\nif (!variants.includes(selected as Variant))\r\n  throw new Error('TASKFORGE_VERSION must be baseline, defective or corrected');\r\nconst app = await startFixture(selected as Variant, { postgresUrl: process.env.TASKFORGE_DATABASE_URL });\r\nconsole.log(`TaskForge prepared ${selected} fixture: ${app.url} (${app.engine}). Use x-user-id: 1.`);\r\nfor (const signal of ['SIGINT', 'SIGTERM'] as const)\r\n  process.on(signal, () => void app.close().then(() => process.exit(0)));\r\n",
+          "summary": "src/serve.ts is a TypeScript source file with estimated complexity 5. Declared symbols: selected, app, signal. Imports: ./app. Extraction: TypeScript compiler AST.",
+          "complexity": 5,
+          "sizeBytes": 593,
+          "imports": [
+            "./app"
+          ],
+          "symbols": [
+            {
+              "name": "selected",
+              "kind": "VariableDeclaration",
+              "line": 2,
+              "endLine": 2
+            },
+            {
+              "name": "app",
+              "kind": "VariableDeclaration",
+              "line": 5,
+              "endLine": 5
+            },
+            {
+              "name": "signal",
+              "kind": "VariableDeclaration",
+              "line": 7,
+              "endLine": 7
+            }
+          ],
+          "contentHash": "9c0c4b21e09a30692fbc4cc5bbfb5f6910652b0f37a7461ac65ee16300568d3d",
+          "updatedAt": "2026-09-13T05:43:29.981Z"
+        },
+        {
+          "id": "5c009b3f-1a77-491e-8dda-f50ef388f52e",
+          "repositoryId": "taskforge",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "path": "src/storage.ts",
+          "language": "TypeScript",
+          "content": "import { createClient } from '@libsql/client';\r\nimport pg from 'pg';\r\nimport { randomUUID } from 'node:crypto';\r\n\r\nexport async function createStorage(postgresUrl?: string) {\r\n  const schema = `fixture_${randomUUID().replaceAll('-', '')}`;\r\n  const pool = postgresUrl ? new pg.Pool({ connectionString: postgresUrl, max: 2 }) : null;\r\n  const sqlite = pool ? null : createClient({ url: ':memory:' });\r\n  if (pool) await pool.query(`CREATE SCHEMA ${schema}`);\r\n  async function query(sql: string, args: (string | number)[] = []): Promise<Record<string, any>[]> {\r\n    if (pool) {\r\n      const client = await pool.connect();\r\n      try {\r\n        await client.query(`SET search_path TO ${schema}`);\r\n        let i = 0;\r\n        return (\r\n          await client.query(\r\n            sql.replace(/\\?/g, () => `$${++i}`),\r\n            args,\r\n          )\r\n        ).rows;\r\n      } finally {\r\n        client.release();\r\n      }\r\n    }\r\n    return (await sqlite!.execute({ sql, args })).rows as Record<string, any>[];\r\n  }\r\n  for (const sql of [\r\n    'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',\r\n    'CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',\r\n    'CREATE TABLE memberships (user_id INTEGER NOT NULL, project_id INTEGER NOT NULL)',\r\n    'CREATE TABLE issues (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, title TEXT NOT NULL)',\r\n    'CREATE TABLE comments (id INTEGER PRIMARY KEY, issue_id INTEGER NOT NULL, body TEXT NOT NULL)',\r\n  ])\r\n    await query(sql);\r\n  await query(\"INSERT INTO users VALUES (1,'Ada'),(2,'Linus')\");\r\n  await query(\"INSERT INTO projects VALUES (1,'Platform'),(2,'Private roadmap')\");\r\n  await query('INSERT INTO memberships VALUES (1,1),(2,2)');\r\n  for (let i = 1; i <= 80; i++) {\r\n    await query('INSERT INTO issues VALUES (?,?,?)', [\r\n      i,\r\n      i <= 60 ? 1 : 2,\r\n      `Issue ${String(i).padStart(3, '0')}`,\r\n    ]);\r\n    for (let j = 0; j < 4; j++)\r\n      await query('INSERT INTO comments VALUES (?,?,?)', [i * 10 + j, i, `Comment ${j}`]);\r\n  }\r\n  return {\r\n    query,\r\n    engine: pool ? 'PostgreSQL' : 'SQLite in-memory',\r\n    async close() {\r\n      if (pool) {\r\n        await pool.query(`DROP SCHEMA ${schema} CASCADE`);\r\n        await pool.end();\r\n      }\r\n      sqlite?.close();\r\n    },\r\n  };\r\n}\r\n",
+          "summary": "src/storage.ts is a TypeScript source file with estimated complexity 20. Declared symbols: createStorage, schema, pool, sqlite, query, client, i, sql, i, j, close. Imports: @libsql/client, pg, node:crypto. Extraction: TypeScript compiler AST.",
+          "complexity": 20,
+          "sizeBytes": 2285,
+          "imports": [
+            "@libsql/client",
+            "pg",
+            "node:crypto"
+          ],
+          "symbols": [
+            {
+              "name": "createStorage",
+              "kind": "FunctionDeclaration",
+              "line": 5,
+              "endLine": 59
+            },
+            {
+              "name": "schema",
+              "kind": "VariableDeclaration",
+              "line": 6,
+              "endLine": 6
+            },
+            {
+              "name": "pool",
+              "kind": "VariableDeclaration",
+              "line": 7,
+              "endLine": 7
+            },
+            {
+              "name": "sqlite",
+              "kind": "VariableDeclaration",
+              "line": 8,
+              "endLine": 8
+            },
+            {
+              "name": "query",
+              "kind": "FunctionDeclaration",
+              "line": 10,
+              "endLine": 27
+            },
+            {
+              "name": "client",
+              "kind": "VariableDeclaration",
+              "line": 12,
+              "endLine": 12
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 15,
+              "endLine": 15
+            },
+            {
+              "name": "sql",
+              "kind": "VariableDeclaration",
+              "line": 28,
+              "endLine": 28
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 39,
+              "endLine": 39
+            },
+            {
+              "name": "j",
+              "kind": "VariableDeclaration",
+              "line": 45,
+              "endLine": 45
+            },
+            {
+              "name": "close",
+              "kind": "MethodDeclaration",
+              "line": 51,
+              "endLine": 57
+            }
+          ],
+          "contentHash": "16d6ba6634d15370079041a7bc9b3add2a93b1aeb3de09d3968fb4e4c9e65e72",
+          "updatedAt": "2026-09-13T05:43:30.223Z"
+        }
+      ],
+      "edges": [
+        {
+          "id": "3da5d1ad-0b24-440f-bfbd-09e3acf434f8",
+          "repositoryId": "taskforge",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "sourcePath": "src/app.ts",
+          "targetPath": "src/storage.ts",
+          "kind": "import"
+        },
+        {
+          "id": "c516f4c2-aa36-4930-a101-25fde10f14e0",
+          "repositoryId": "taskforge",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "sourcePath": "src/serve.ts",
+          "targetPath": "src/app.ts",
+          "kind": "import"
+        }
+      ],
+      "findings": [
+        {
+          "id": "fb7ae95f-f2cc-4272-b2ed-5264b6f6affd",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "repositoryId": "taskforge",
+          "filePath": "src/app.ts",
+          "line": 1,
+          "endLine": 1,
+          "severity": "high",
+          "category": "complexity",
+          "title": "High conditional complexity",
+          "description": "This file has an estimated cyclomatic complexity of 55.",
+          "suggestion": "Split branching logic into smaller, testable functions.",
+          "confidence": 0.7,
+          "source": "static-analysis"
+        },
+        {
+          "id": "16cb6e72-72b5-422d-9206-bbc79ef08fcc",
+          "analysisRunId": "5d7315c2-3156-4723-9b9c-c00029f73cf3",
+          "repositoryId": "taskforge",
+          "filePath": "src/storage.ts",
+          "line": 1,
+          "endLine": 1,
+          "severity": "medium",
+          "category": "complexity",
+          "title": "High conditional complexity",
+          "description": "This file has an estimated cyclomatic complexity of 20.",
+          "suggestion": "Split branching logic into smaller, testable functions.",
+          "confidence": 0.7,
+          "source": "static-analysis"
+        }
+      ]
+    },
+    {
+      "revision": "23325694409581115ebdcfadf1d9ce4a4d696435",
+      "run": {
+        "id": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+        "repositoryId": "taskforge",
+        "status": "completed",
+        "branch": "defective",
+        "commitSha": "23325694409581115ebdcfadf1d9ce4a4d696435",
+        "coverage": "{\"languages\":[\"TypeScript\"],\"parser\":\"TypeScript compiler AST for JS/TS; heuristics for Python/Java\",\"limits\":{\"maxFiles\":500,\"maxBytes\":26214400,\"maxFileBytes\":1000000},\"bounded\":false,\"skippedForSize\":0,\"binaryFiles\":0,\"excluded\":[\".git\",\"node_modules\",\"dist\",\"build\",\"coverage\",\".next\",\"vendor\"],\"limitations\":\"Source files only; binary files and symlinks skipped. Relative import graph is incomplete; complexity and security checks are heuristics.\",\"summary\":\"Indexed 4 source files across TypeScript. src/app.ts: 4 imports; src/revision.ts: 0 imports; src/serve.ts: 1 imports; src/storage.ts: 3 imports. This is a deterministic source summary; no AI interpretation is required.\"}",
+        "progress": 100,
+        "filesProcessed": 4,
+        "totalFiles": 4,
+        "symbolsIndexed": 49,
+        "findingsCount": 2,
+        "startedAt": "2026-09-13T05:43:26.793Z",
+        "completedAt": "2026-09-13T05:43:34.442Z",
+        "error": null
+      },
+      "files": [
+        {
+          "id": "ffaba2f9-f45c-43dc-aac4-6a0af4b014c3",
+          "repositoryId": "taskforge",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "path": "src/app.ts",
+          "language": "TypeScript",
+          "content": "import { createServer } from 'node:http';\r\nimport { performance } from 'node:perf_hooks';\r\nimport { randomUUID, pbkdf2Sync } from 'node:crypto';\r\nimport { createStorage } from './storage';\r\n\r\nexport const variants = ['baseline', 'defective', 'corrected'] as const;\r\nexport type Variant = (typeof variants)[number];\r\nexport interface Trace {\r\n  id: string;\r\n  endpoint: string;\r\n  status: number;\r\n  durationMs: number;\r\n  queryCount: number;\r\n  queryDurationMs: number;\r\n  queries: Array<{ sql: string; durationMs: number }>;\r\n  source: { path: string; symbol: string; mapping: 'explicit' };\r\n}\r\n\r\n// Prepared example: defective deliberately contains three real regressions.\r\n// Expected labels belong to tests; the investigator receives measured traces only.\r\nexport async function startFixture(\r\n  variant: Variant,\r\n  options: { postgresUrl?: string; workers?: number } = {},\r\n) {\r\n  if (!variants.includes(variant)) throw new Error('Unsupported fixture version');\r\n  const storage = await createStorage(options.postgresUrl);\r\n  const traces: Trace[] = [];\r\n  const reports = new Map<string, string>();\r\n  const background = new Set<ReturnType<typeof setImmediate>>();\r\n  const workers = options.workers ?? (variant === 'defective' ? 8 : 1);\r\n  const server = createServer(async (req, res) => {\r\n    const started = performance.now();\r\n    const url = new URL(req.url ?? '/', 'http://localhost');\r\n    const trace: Trace = {\r\n      id: randomUUID(),\r\n      endpoint: url.pathname,\r\n      status: 200,\r\n      durationMs: 0,\r\n      queryCount: 0,\r\n      queryDurationMs: 0,\r\n      queries: [],\r\n      source: { path: 'src/app.ts', symbol: 'startFixture', mapping: 'explicit' },\r\n    };\r\n    const query = async (sql: string, args: (string | number)[] = []) => {\r\n      const start = performance.now();\r\n      const rows = await storage.query(sql, args);\r\n      const durationMs = performance.now() - start;\r\n      trace.queryCount++;\r\n      trace.queryDurationMs += durationMs;\r\n      trace.queries.push({ sql, durationMs });\r\n      return rows;\r\n    };\r\n    const finish = (status: number, body: unknown) => {\r\n      trace.status = status;\r\n      trace.durationMs = performance.now() - started;\r\n      traces.push(trace);\r\n      res.writeHead(status, { 'content-type': 'application/json', 'x-trace-id': trace.id });\r\n      res.end(JSON.stringify(body));\r\n    };\r\n    try {\r\n      if (url.pathname === '/') {\r\n        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });\r\n        res.end(\r\n          `<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TaskForge · prepared example</title><style>body{max-width:800px;margin:60px auto;padding:20px;font:16px system-ui;background:#101820;color:#deece5}button{padding:12px 18px;margin:12px 8px 12px 0;border-radius:6px;border:1px solid #5b8d77;background:#245640;color:white}pre{white-space:pre-wrap;padding:20px;background:#1d2b35;border-radius:8px}</style><h1>TaskForge</h1><p>Prepared issue-tracker example · signed in as Ada</p><button id=\"issues\">Load issues</button><button id=\"private\">Open private project</button><pre role=\"status\" id=\"result\">Choose a project.</pre><script>async function load(project){const response=await fetch('/api/issues?project='+project+'&size=5',{headers:{'x-user-id':'1'}});const body=await response.json();document.getElementById('result').textContent=response.status===403?'Access denied':response.status===200?body.issues.map(i=>i.title+' · '+i.commentCount+' comments').join('\\\\n'):'Request failed';}document.getElementById('issues').onclick=()=>load(1);document.getElementById('private').onclick=()=>load(2);</script></html>`,\r\n        );\r\n        return;\r\n      }\r\n      if (url.pathname === '/health') return finish(200, { status: 'ok' });\r\n      const user = Number(req.headers['x-user-id']);\r\n      if (![1, 2].includes(user)) return finish(401, { error: 'Authentication required' });\r\n      if (url.pathname === '/api/projects')\r\n        return finish(\r\n          200,\r\n          await query(\r\n            'SELECT p.* FROM projects p JOIN memberships m ON p.id=m.project_id WHERE m.user_id=?',\r\n            [user],\r\n          ),\r\n        );\r\n      if (url.pathname === '/api/issues') {\r\n        const project = Number(url.searchParams.get('project') ?? 1);\r\n        const membership = await query('SELECT user_id FROM memberships WHERE user_id=? AND project_id=?', [\r\n          user,\r\n          project,\r\n        ]);\r\n        if (!membership.length && variant !== 'defective')\r\n          return finish(403, { error: 'Project membership required' });\r\n        const size = Math.min(40, Math.max(1, Number(url.searchParams.get('size') ?? 20) || 20));\r\n        const search = url.searchParams.get('search') ?? '';\r\n        const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);\r\n        let issues: Record<string, any>[];\r\n        if (variant === 'defective') {\r\n          issues = await query(\r\n            'SELECT id,title FROM issues WHERE project_id=? AND title LIKE ? ORDER BY id LIMIT ? OFFSET ?',\r\n            [project, `%${search}%`, size, offset],\r\n          );\r\n          for (const issue of issues) {\r\n            const rows = await query('SELECT COUNT(*) AS count FROM comments WHERE issue_id=?', [issue.id]);\r\n            issue.commentCount = Number(rows[0].count);\r\n          }\r\n        } else {\r\n          issues = await query(\r\n            'SELECT i.id,i.title,COUNT(c.id) AS count FROM issues i LEFT JOIN comments c ON c.issue_id=i.id WHERE i.project_id=? AND i.title LIKE ? GROUP BY i.id,i.title ORDER BY i.id LIMIT ? OFFSET ?',\r\n            [project, `%${search}%`, size, offset],\r\n          );\r\n          issues = issues.map(({ count, ...issue }) => ({ ...issue, commentCount: Number(count) }));\r\n        }\r\n        return finish(200, { issues });\r\n      }\r\n      if (url.pathname === '/api/reports' && req.method === 'POST') {\r\n        const id = randomUUID();\r\n        reports.set(id, 'queued');\r\n        const job = setImmediate(() => {\r\n          background.delete(job);\r\n          reports.set(id, 'running');\r\n          // CPU-bound background work shares the event loop: increasing workers causes contention.\r\n          for (let i = 0; i < workers; i++) pbkdf2Sync('fixture-report', 'fixed-seed', 12_000, 32, 'sha256');\r\n          reports.set(id, 'completed');\r\n        });\r\n        background.add(job);\r\n        return finish(202, { id, status: 'queued' });\r\n      }\r\n      if (url.pathname.startsWith('/api/reports/')) {\r\n        const status = reports.get(url.pathname.split('/').pop()!);\r\n        return finish(status ? 200 : 404, { status: status ?? 'not_found' });\r\n      }\r\n      finish(404, { error: 'Not found' });\r\n    } catch {\r\n      finish(500, { error: 'Fixture request failed' });\r\n    }\r\n  });\r\n  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));\r\n  const address = server.address();\r\n  if (!address || typeof address === 'string') throw new Error('Missing fixture port');\r\n  return {\r\n    url: `http://127.0.0.1:${address.port}`,\r\n    traces,\r\n    engine: storage.engine,\r\n    workers,\r\n    async close() {\r\n      for (const job of background) clearImmediate(job);\r\n      server.closeAllConnections();\r\n      await new Promise<void>((resolve, reject) =>\r\n        server.close((error) => (error ? reject(error) : resolve())),\r\n      );\r\n      await storage.close();\r\n    },\r\n  };\r\n}\r\n",
+          "summary": "src/app.ts is a TypeScript source file with estimated complexity 55. Declared symbols: variants, Variant, Trace, startFixture, storage, traces, reports, background, workers, server, started, url. Imports: node:http, node:perf_hooks, node:crypto, ./storage. Extraction: TypeScript compiler AST.",
+          "complexity": 55,
+          "sizeBytes": 7461,
+          "imports": [
+            "node:http",
+            "node:perf_hooks",
+            "node:crypto",
+            "./storage"
+          ],
+          "symbols": [
+            {
+              "name": "variants",
+              "kind": "VariableDeclaration",
+              "line": 6,
+              "endLine": 6
+            },
+            {
+              "name": "Variant",
+              "kind": "TypeAliasDeclaration",
+              "line": 7,
+              "endLine": 7
+            },
+            {
+              "name": "Trace",
+              "kind": "InterfaceDeclaration",
+              "line": 8,
+              "endLine": 17
+            },
+            {
+              "name": "startFixture",
+              "kind": "FunctionDeclaration",
+              "line": 21,
+              "endLine": 148
+            },
+            {
+              "name": "storage",
+              "kind": "VariableDeclaration",
+              "line": 26,
+              "endLine": 26
+            },
+            {
+              "name": "traces",
+              "kind": "VariableDeclaration",
+              "line": 27,
+              "endLine": 27
+            },
+            {
+              "name": "reports",
+              "kind": "VariableDeclaration",
+              "line": 28,
+              "endLine": 28
+            },
+            {
+              "name": "background",
+              "kind": "VariableDeclaration",
+              "line": 29,
+              "endLine": 29
+            },
+            {
+              "name": "workers",
+              "kind": "VariableDeclaration",
+              "line": 30,
+              "endLine": 30
+            },
+            {
+              "name": "server",
+              "kind": "VariableDeclaration",
+              "line": 31,
+              "endLine": 130
+            },
+            {
+              "name": "started",
+              "kind": "VariableDeclaration",
+              "line": 32,
+              "endLine": 32
+            },
+            {
+              "name": "url",
+              "kind": "VariableDeclaration",
+              "line": 33,
+              "endLine": 33
+            },
+            {
+              "name": "trace",
+              "kind": "VariableDeclaration",
+              "line": 34,
+              "endLine": 43
+            },
+            {
+              "name": "query",
+              "kind": "VariableDeclaration",
+              "line": 44,
+              "endLine": 52
+            },
+            {
+              "name": "start",
+              "kind": "VariableDeclaration",
+              "line": 45,
+              "endLine": 45
+            },
+            {
+              "name": "rows",
+              "kind": "VariableDeclaration",
+              "line": 46,
+              "endLine": 46
+            },
+            {
+              "name": "durationMs",
+              "kind": "VariableDeclaration",
+              "line": 47,
+              "endLine": 47
+            },
+            {
+              "name": "finish",
+              "kind": "VariableDeclaration",
+              "line": 53,
+              "endLine": 59
+            },
+            {
+              "name": "user",
+              "kind": "VariableDeclaration",
+              "line": 69,
+              "endLine": 69
+            },
+            {
+              "name": "project",
+              "kind": "VariableDeclaration",
+              "line": 80,
+              "endLine": 80
+            },
+            {
+              "name": "membership",
+              "kind": "VariableDeclaration",
+              "line": 81,
+              "endLine": 84
+            },
+            {
+              "name": "size",
+              "kind": "VariableDeclaration",
+              "line": 87,
+              "endLine": 87
+            },
+            {
+              "name": "search",
+              "kind": "VariableDeclaration",
+              "line": 88,
+              "endLine": 88
+            },
+            {
+              "name": "offset",
+              "kind": "VariableDeclaration",
+              "line": 89,
+              "endLine": 89
+            },
+            {
+              "name": "issues",
+              "kind": "VariableDeclaration",
+              "line": 90,
+              "endLine": 90
+            },
+            {
+              "name": "issue",
+              "kind": "VariableDeclaration",
+              "line": 96,
+              "endLine": 96
+            },
+            {
+              "name": "rows",
+              "kind": "VariableDeclaration",
+              "line": 97,
+              "endLine": 97
+            },
+            {
+              "name": "id",
+              "kind": "VariableDeclaration",
+              "line": 110,
+              "endLine": 110
+            },
+            {
+              "name": "job",
+              "kind": "VariableDeclaration",
+              "line": 112,
+              "endLine": 118
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 116,
+              "endLine": 116
+            },
+            {
+              "name": "status",
+              "kind": "VariableDeclaration",
+              "line": 123,
+              "endLine": 123
+            },
+            {
+              "name": "address",
+              "kind": "VariableDeclaration",
+              "line": 132,
+              "endLine": 132
+            },
+            {
+              "name": "close",
+              "kind": "MethodDeclaration",
+              "line": 139,
+              "endLine": 146
+            },
+            {
+              "name": "job",
+              "kind": "VariableDeclaration",
+              "line": 140,
+              "endLine": 140
+            }
+          ],
+          "contentHash": "19794e4fb7417041737645a7e126861a2b0fbde284c8cdcff83aa048bed55f88",
+          "updatedAt": "2026-09-13T05:43:34.258Z"
+        },
+        {
+          "id": "483ed761-0ab1-40bc-921f-4f0b60b9e1cd",
+          "repositoryId": "taskforge",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "path": "src/revision.ts",
+          "language": "TypeScript",
+          "content": "export const variant = 'defective';\r\n",
+          "summary": "src/revision.ts is a TypeScript source file with estimated complexity 1. Declared symbols: variant. Extraction: TypeScript compiler AST.",
+          "complexity": 1,
+          "sizeBytes": 37,
+          "imports": [],
+          "symbols": [
+            {
+              "name": "variant",
+              "kind": "VariableDeclaration",
+              "line": 1,
+              "endLine": 1
+            }
+          ],
+          "contentHash": "102cc542b4538eb2ea0320b466c5337857af6a8f8fba6079b93ad5b5d1d87c5b",
+          "updatedAt": "2026-09-13T05:43:34.299Z"
+        },
+        {
+          "id": "0348c196-799d-4170-bcdf-d7b1518c1ca7",
+          "repositoryId": "taskforge",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "path": "src/serve.ts",
+          "language": "TypeScript",
+          "content": "import { startFixture, variants, type Variant } from './app';\r\nconst selected = process.env.TASKFORGE_VERSION ?? 'baseline';\r\nif (!variants.includes(selected as Variant))\r\n  throw new Error('TASKFORGE_VERSION must be baseline, defective or corrected');\r\nconst app = await startFixture(selected as Variant, { postgresUrl: process.env.TASKFORGE_DATABASE_URL });\r\nconsole.log(`TaskForge prepared ${selected} fixture: ${app.url} (${app.engine}). Use x-user-id: 1.`);\r\nfor (const signal of ['SIGINT', 'SIGTERM'] as const)\r\n  process.on(signal, () => void app.close().then(() => process.exit(0)));\r\n",
+          "summary": "src/serve.ts is a TypeScript source file with estimated complexity 5. Declared symbols: selected, app, signal. Imports: ./app. Extraction: TypeScript compiler AST.",
+          "complexity": 5,
+          "sizeBytes": 593,
+          "imports": [
+            "./app"
+          ],
+          "symbols": [
+            {
+              "name": "selected",
+              "kind": "VariableDeclaration",
+              "line": 2,
+              "endLine": 2
+            },
+            {
+              "name": "app",
+              "kind": "VariableDeclaration",
+              "line": 5,
+              "endLine": 5
+            },
+            {
+              "name": "signal",
+              "kind": "VariableDeclaration",
+              "line": 7,
+              "endLine": 7
+            }
+          ],
+          "contentHash": "9c0c4b21e09a30692fbc4cc5bbfb5f6910652b0f37a7461ac65ee16300568d3d",
+          "updatedAt": "2026-09-13T05:43:34.308Z"
+        },
+        {
+          "id": "00cd7b27-0dbd-46d3-ab9c-5321f7180edf",
+          "repositoryId": "taskforge",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "path": "src/storage.ts",
+          "language": "TypeScript",
+          "content": "import { createClient } from '@libsql/client';\r\nimport pg from 'pg';\r\nimport { randomUUID } from 'node:crypto';\r\n\r\nexport async function createStorage(postgresUrl?: string) {\r\n  const schema = `fixture_${randomUUID().replaceAll('-', '')}`;\r\n  const pool = postgresUrl ? new pg.Pool({ connectionString: postgresUrl, max: 2 }) : null;\r\n  const sqlite = pool ? null : createClient({ url: ':memory:' });\r\n  if (pool) await pool.query(`CREATE SCHEMA ${schema}`);\r\n  async function query(sql: string, args: (string | number)[] = []): Promise<Record<string, any>[]> {\r\n    if (pool) {\r\n      const client = await pool.connect();\r\n      try {\r\n        await client.query(`SET search_path TO ${schema}`);\r\n        let i = 0;\r\n        return (\r\n          await client.query(\r\n            sql.replace(/\\?/g, () => `$${++i}`),\r\n            args,\r\n          )\r\n        ).rows;\r\n      } finally {\r\n        client.release();\r\n      }\r\n    }\r\n    return (await sqlite!.execute({ sql, args })).rows as Record<string, any>[];\r\n  }\r\n  for (const sql of [\r\n    'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',\r\n    'CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',\r\n    'CREATE TABLE memberships (user_id INTEGER NOT NULL, project_id INTEGER NOT NULL)',\r\n    'CREATE TABLE issues (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, title TEXT NOT NULL)',\r\n    'CREATE TABLE comments (id INTEGER PRIMARY KEY, issue_id INTEGER NOT NULL, body TEXT NOT NULL)',\r\n  ])\r\n    await query(sql);\r\n  await query(\"INSERT INTO users VALUES (1,'Ada'),(2,'Linus')\");\r\n  await query(\"INSERT INTO projects VALUES (1,'Platform'),(2,'Private roadmap')\");\r\n  await query('INSERT INTO memberships VALUES (1,1),(2,2)');\r\n  for (let i = 1; i <= 80; i++) {\r\n    await query('INSERT INTO issues VALUES (?,?,?)', [\r\n      i,\r\n      i <= 60 ? 1 : 2,\r\n      `Issue ${String(i).padStart(3, '0')}`,\r\n    ]);\r\n    for (let j = 0; j < 4; j++)\r\n      await query('INSERT INTO comments VALUES (?,?,?)', [i * 10 + j, i, `Comment ${j}`]);\r\n  }\r\n  return {\r\n    query,\r\n    engine: pool ? 'PostgreSQL' : 'SQLite in-memory',\r\n    async close() {\r\n      if (pool) {\r\n        await pool.query(`DROP SCHEMA ${schema} CASCADE`);\r\n        await pool.end();\r\n      }\r\n      sqlite?.close();\r\n    },\r\n  };\r\n}\r\n",
+          "summary": "src/storage.ts is a TypeScript source file with estimated complexity 20. Declared symbols: createStorage, schema, pool, sqlite, query, client, i, sql, i, j, close. Imports: @libsql/client, pg, node:crypto. Extraction: TypeScript compiler AST.",
+          "complexity": 20,
+          "sizeBytes": 2285,
+          "imports": [
+            "@libsql/client",
+            "pg",
+            "node:crypto"
+          ],
+          "symbols": [
+            {
+              "name": "createStorage",
+              "kind": "FunctionDeclaration",
+              "line": 5,
+              "endLine": 59
+            },
+            {
+              "name": "schema",
+              "kind": "VariableDeclaration",
+              "line": 6,
+              "endLine": 6
+            },
+            {
+              "name": "pool",
+              "kind": "VariableDeclaration",
+              "line": 7,
+              "endLine": 7
+            },
+            {
+              "name": "sqlite",
+              "kind": "VariableDeclaration",
+              "line": 8,
+              "endLine": 8
+            },
+            {
+              "name": "query",
+              "kind": "FunctionDeclaration",
+              "line": 10,
+              "endLine": 27
+            },
+            {
+              "name": "client",
+              "kind": "VariableDeclaration",
+              "line": 12,
+              "endLine": 12
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 15,
+              "endLine": 15
+            },
+            {
+              "name": "sql",
+              "kind": "VariableDeclaration",
+              "line": 28,
+              "endLine": 28
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 39,
+              "endLine": 39
+            },
+            {
+              "name": "j",
+              "kind": "VariableDeclaration",
+              "line": 45,
+              "endLine": 45
+            },
+            {
+              "name": "close",
+              "kind": "MethodDeclaration",
+              "line": 51,
+              "endLine": 57
+            }
+          ],
+          "contentHash": "16d6ba6634d15370079041a7bc9b3add2a93b1aeb3de09d3968fb4e4c9e65e72",
+          "updatedAt": "2026-09-13T05:43:34.349Z"
+        }
+      ],
+      "edges": [
+        {
+          "id": "3e26ab21-b5f3-4700-84a8-9cc5b74e57ae",
+          "repositoryId": "taskforge",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "sourcePath": "src/app.ts",
+          "targetPath": "src/storage.ts",
+          "kind": "import"
+        },
+        {
+          "id": "20237db8-c55d-4ef4-980f-6ef6cee85444",
+          "repositoryId": "taskforge",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "sourcePath": "src/serve.ts",
+          "targetPath": "src/app.ts",
+          "kind": "import"
+        }
+      ],
+      "findings": [
+        {
+          "id": "b08cae5e-3cc5-4861-9e03-9729f3657489",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "repositoryId": "taskforge",
+          "filePath": "src/app.ts",
+          "line": 1,
+          "endLine": 1,
+          "severity": "high",
+          "category": "complexity",
+          "title": "High conditional complexity",
+          "description": "This file has an estimated cyclomatic complexity of 55.",
+          "suggestion": "Split branching logic into smaller, testable functions.",
+          "confidence": 0.7,
+          "source": "static-analysis"
+        },
+        {
+          "id": "771cfe15-c410-4698-a21d-55aed8ab810f",
+          "analysisRunId": "dfb8d1ed-66f2-48cf-8163-f67eb9d44054",
+          "repositoryId": "taskforge",
+          "filePath": "src/storage.ts",
+          "line": 1,
+          "endLine": 1,
+          "severity": "medium",
+          "category": "complexity",
+          "title": "High conditional complexity",
+          "description": "This file has an estimated cyclomatic complexity of 20.",
+          "suggestion": "Split branching logic into smaller, testable functions.",
+          "confidence": 0.7,
+          "source": "static-analysis"
+        }
+      ]
+    },
+    {
+      "revision": "61323d303759af01618ba6354ea3ded737c1dd2e",
+      "run": {
+        "id": "16935590-7396-4f34-b206-4223c87a63ac",
+        "repositoryId": "taskforge",
+        "status": "completed",
+        "branch": "corrected",
+        "commitSha": "61323d303759af01618ba6354ea3ded737c1dd2e",
+        "coverage": "{\"languages\":[\"TypeScript\"],\"parser\":\"TypeScript compiler AST for JS/TS; heuristics for Python/Java\",\"limits\":{\"maxFiles\":500,\"maxBytes\":26214400,\"maxFileBytes\":1000000},\"bounded\":false,\"skippedForSize\":0,\"binaryFiles\":0,\"excluded\":[\".git\",\"node_modules\",\"dist\",\"build\",\"coverage\",\".next\",\"vendor\"],\"limitations\":\"Source files only; binary files and symlinks skipped. Relative import graph is incomplete; complexity and security checks are heuristics.\",\"summary\":\"Indexed 4 source files across TypeScript. src/app.ts: 4 imports; src/revision.ts: 0 imports; src/serve.ts: 1 imports; src/storage.ts: 3 imports. This is a deterministic source summary; no AI interpretation is required.\"}",
+        "progress": 100,
+        "filesProcessed": 4,
+        "totalFiles": 4,
+        "symbolsIndexed": 49,
+        "findingsCount": 2,
+        "startedAt": "2026-09-13T05:43:26.793Z",
+        "completedAt": "2026-09-13T05:43:36.254Z",
+        "error": null
+      },
+      "files": [
+        {
+          "id": "d91fbf1a-61d4-4c5b-b432-3b3848ea2806",
+          "repositoryId": "taskforge",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "path": "src/app.ts",
+          "language": "TypeScript",
+          "content": "import { createServer } from 'node:http';\r\nimport { performance } from 'node:perf_hooks';\r\nimport { randomUUID, pbkdf2Sync } from 'node:crypto';\r\nimport { createStorage } from './storage';\r\n\r\nexport const variants = ['baseline', 'defective', 'corrected'] as const;\r\nexport type Variant = (typeof variants)[number];\r\nexport interface Trace {\r\n  id: string;\r\n  endpoint: string;\r\n  status: number;\r\n  durationMs: number;\r\n  queryCount: number;\r\n  queryDurationMs: number;\r\n  queries: Array<{ sql: string; durationMs: number }>;\r\n  source: { path: string; symbol: string; mapping: 'explicit' };\r\n}\r\n\r\n// Prepared example: defective deliberately contains three real regressions.\r\n// Expected labels belong to tests; the investigator receives measured traces only.\r\nexport async function startFixture(\r\n  variant: Variant,\r\n  options: { postgresUrl?: string; workers?: number } = {},\r\n) {\r\n  if (!variants.includes(variant)) throw new Error('Unsupported fixture version');\r\n  const storage = await createStorage(options.postgresUrl);\r\n  const traces: Trace[] = [];\r\n  const reports = new Map<string, string>();\r\n  const background = new Set<ReturnType<typeof setImmediate>>();\r\n  const workers = options.workers ?? (variant === 'defective' ? 8 : 1);\r\n  const server = createServer(async (req, res) => {\r\n    const started = performance.now();\r\n    const url = new URL(req.url ?? '/', 'http://localhost');\r\n    const trace: Trace = {\r\n      id: randomUUID(),\r\n      endpoint: url.pathname,\r\n      status: 200,\r\n      durationMs: 0,\r\n      queryCount: 0,\r\n      queryDurationMs: 0,\r\n      queries: [],\r\n      source: { path: 'src/app.ts', symbol: 'startFixture', mapping: 'explicit' },\r\n    };\r\n    const query = async (sql: string, args: (string | number)[] = []) => {\r\n      const start = performance.now();\r\n      const rows = await storage.query(sql, args);\r\n      const durationMs = performance.now() - start;\r\n      trace.queryCount++;\r\n      trace.queryDurationMs += durationMs;\r\n      trace.queries.push({ sql, durationMs });\r\n      return rows;\r\n    };\r\n    const finish = (status: number, body: unknown) => {\r\n      trace.status = status;\r\n      trace.durationMs = performance.now() - started;\r\n      traces.push(trace);\r\n      res.writeHead(status, { 'content-type': 'application/json', 'x-trace-id': trace.id });\r\n      res.end(JSON.stringify(body));\r\n    };\r\n    try {\r\n      if (url.pathname === '/') {\r\n        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });\r\n        res.end(\r\n          `<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>TaskForge · prepared example</title><style>body{max-width:800px;margin:60px auto;padding:20px;font:16px system-ui;background:#101820;color:#deece5}button{padding:12px 18px;margin:12px 8px 12px 0;border-radius:6px;border:1px solid #5b8d77;background:#245640;color:white}pre{white-space:pre-wrap;padding:20px;background:#1d2b35;border-radius:8px}</style><h1>TaskForge</h1><p>Prepared issue-tracker example · signed in as Ada</p><button id=\"issues\">Load issues</button><button id=\"private\">Open private project</button><pre role=\"status\" id=\"result\">Choose a project.</pre><script>async function load(project){const response=await fetch('/api/issues?project='+project+'&size=5',{headers:{'x-user-id':'1'}});const body=await response.json();document.getElementById('result').textContent=response.status===403?'Access denied':response.status===200?body.issues.map(i=>i.title+' · '+i.commentCount+' comments').join('\\\\n'):'Request failed';}document.getElementById('issues').onclick=()=>load(1);document.getElementById('private').onclick=()=>load(2);</script></html>`,\r\n        );\r\n        return;\r\n      }\r\n      if (url.pathname === '/health') return finish(200, { status: 'ok' });\r\n      const user = Number(req.headers['x-user-id']);\r\n      if (![1, 2].includes(user)) return finish(401, { error: 'Authentication required' });\r\n      if (url.pathname === '/api/projects')\r\n        return finish(\r\n          200,\r\n          await query(\r\n            'SELECT p.* FROM projects p JOIN memberships m ON p.id=m.project_id WHERE m.user_id=?',\r\n            [user],\r\n          ),\r\n        );\r\n      if (url.pathname === '/api/issues') {\r\n        const project = Number(url.searchParams.get('project') ?? 1);\r\n        const membership = await query('SELECT user_id FROM memberships WHERE user_id=? AND project_id=?', [\r\n          user,\r\n          project,\r\n        ]);\r\n        if (!membership.length && variant !== 'defective')\r\n          return finish(403, { error: 'Project membership required' });\r\n        const size = Math.min(40, Math.max(1, Number(url.searchParams.get('size') ?? 20) || 20));\r\n        const search = url.searchParams.get('search') ?? '';\r\n        const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);\r\n        let issues: Record<string, any>[];\r\n        if (variant === 'defective') {\r\n          issues = await query(\r\n            'SELECT id,title FROM issues WHERE project_id=? AND title LIKE ? ORDER BY id LIMIT ? OFFSET ?',\r\n            [project, `%${search}%`, size, offset],\r\n          );\r\n          for (const issue of issues) {\r\n            const rows = await query('SELECT COUNT(*) AS count FROM comments WHERE issue_id=?', [issue.id]);\r\n            issue.commentCount = Number(rows[0].count);\r\n          }\r\n        } else {\r\n          issues = await query(\r\n            'SELECT i.id,i.title,COUNT(c.id) AS count FROM issues i LEFT JOIN comments c ON c.issue_id=i.id WHERE i.project_id=? AND i.title LIKE ? GROUP BY i.id,i.title ORDER BY i.id LIMIT ? OFFSET ?',\r\n            [project, `%${search}%`, size, offset],\r\n          );\r\n          issues = issues.map(({ count, ...issue }) => ({ ...issue, commentCount: Number(count) }));\r\n        }\r\n        return finish(200, { issues });\r\n      }\r\n      if (url.pathname === '/api/reports' && req.method === 'POST') {\r\n        const id = randomUUID();\r\n        reports.set(id, 'queued');\r\n        const job = setImmediate(() => {\r\n          background.delete(job);\r\n          reports.set(id, 'running');\r\n          // CPU-bound background work shares the event loop: increasing workers causes contention.\r\n          for (let i = 0; i < workers; i++) pbkdf2Sync('fixture-report', 'fixed-seed', 12_000, 32, 'sha256');\r\n          reports.set(id, 'completed');\r\n        });\r\n        background.add(job);\r\n        return finish(202, { id, status: 'queued' });\r\n      }\r\n      if (url.pathname.startsWith('/api/reports/')) {\r\n        const status = reports.get(url.pathname.split('/').pop()!);\r\n        return finish(status ? 200 : 404, { status: status ?? 'not_found' });\r\n      }\r\n      finish(404, { error: 'Not found' });\r\n    } catch {\r\n      finish(500, { error: 'Fixture request failed' });\r\n    }\r\n  });\r\n  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));\r\n  const address = server.address();\r\n  if (!address || typeof address === 'string') throw new Error('Missing fixture port');\r\n  return {\r\n    url: `http://127.0.0.1:${address.port}`,\r\n    traces,\r\n    engine: storage.engine,\r\n    workers,\r\n    async close() {\r\n      for (const job of background) clearImmediate(job);\r\n      server.closeAllConnections();\r\n      await new Promise<void>((resolve, reject) =>\r\n        server.close((error) => (error ? reject(error) : resolve())),\r\n      );\r\n      await storage.close();\r\n    },\r\n  };\r\n}\r\n",
+          "summary": "src/app.ts is a TypeScript source file with estimated complexity 55. Declared symbols: variants, Variant, Trace, startFixture, storage, traces, reports, background, workers, server, started, url. Imports: node:http, node:perf_hooks, node:crypto, ./storage. Extraction: TypeScript compiler AST.",
+          "complexity": 55,
+          "sizeBytes": 7461,
+          "imports": [
+            "node:http",
+            "node:perf_hooks",
+            "node:crypto",
+            "./storage"
+          ],
+          "symbols": [
+            {
+              "name": "variants",
+              "kind": "VariableDeclaration",
+              "line": 6,
+              "endLine": 6
+            },
+            {
+              "name": "Variant",
+              "kind": "TypeAliasDeclaration",
+              "line": 7,
+              "endLine": 7
+            },
+            {
+              "name": "Trace",
+              "kind": "InterfaceDeclaration",
+              "line": 8,
+              "endLine": 17
+            },
+            {
+              "name": "startFixture",
+              "kind": "FunctionDeclaration",
+              "line": 21,
+              "endLine": 148
+            },
+            {
+              "name": "storage",
+              "kind": "VariableDeclaration",
+              "line": 26,
+              "endLine": 26
+            },
+            {
+              "name": "traces",
+              "kind": "VariableDeclaration",
+              "line": 27,
+              "endLine": 27
+            },
+            {
+              "name": "reports",
+              "kind": "VariableDeclaration",
+              "line": 28,
+              "endLine": 28
+            },
+            {
+              "name": "background",
+              "kind": "VariableDeclaration",
+              "line": 29,
+              "endLine": 29
+            },
+            {
+              "name": "workers",
+              "kind": "VariableDeclaration",
+              "line": 30,
+              "endLine": 30
+            },
+            {
+              "name": "server",
+              "kind": "VariableDeclaration",
+              "line": 31,
+              "endLine": 130
+            },
+            {
+              "name": "started",
+              "kind": "VariableDeclaration",
+              "line": 32,
+              "endLine": 32
+            },
+            {
+              "name": "url",
+              "kind": "VariableDeclaration",
+              "line": 33,
+              "endLine": 33
+            },
+            {
+              "name": "trace",
+              "kind": "VariableDeclaration",
+              "line": 34,
+              "endLine": 43
+            },
+            {
+              "name": "query",
+              "kind": "VariableDeclaration",
+              "line": 44,
+              "endLine": 52
+            },
+            {
+              "name": "start",
+              "kind": "VariableDeclaration",
+              "line": 45,
+              "endLine": 45
+            },
+            {
+              "name": "rows",
+              "kind": "VariableDeclaration",
+              "line": 46,
+              "endLine": 46
+            },
+            {
+              "name": "durationMs",
+              "kind": "VariableDeclaration",
+              "line": 47,
+              "endLine": 47
+            },
+            {
+              "name": "finish",
+              "kind": "VariableDeclaration",
+              "line": 53,
+              "endLine": 59
+            },
+            {
+              "name": "user",
+              "kind": "VariableDeclaration",
+              "line": 69,
+              "endLine": 69
+            },
+            {
+              "name": "project",
+              "kind": "VariableDeclaration",
+              "line": 80,
+              "endLine": 80
+            },
+            {
+              "name": "membership",
+              "kind": "VariableDeclaration",
+              "line": 81,
+              "endLine": 84
+            },
+            {
+              "name": "size",
+              "kind": "VariableDeclaration",
+              "line": 87,
+              "endLine": 87
+            },
+            {
+              "name": "search",
+              "kind": "VariableDeclaration",
+              "line": 88,
+              "endLine": 88
+            },
+            {
+              "name": "offset",
+              "kind": "VariableDeclaration",
+              "line": 89,
+              "endLine": 89
+            },
+            {
+              "name": "issues",
+              "kind": "VariableDeclaration",
+              "line": 90,
+              "endLine": 90
+            },
+            {
+              "name": "issue",
+              "kind": "VariableDeclaration",
+              "line": 96,
+              "endLine": 96
+            },
+            {
+              "name": "rows",
+              "kind": "VariableDeclaration",
+              "line": 97,
+              "endLine": 97
+            },
+            {
+              "name": "id",
+              "kind": "VariableDeclaration",
+              "line": 110,
+              "endLine": 110
+            },
+            {
+              "name": "job",
+              "kind": "VariableDeclaration",
+              "line": 112,
+              "endLine": 118
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 116,
+              "endLine": 116
+            },
+            {
+              "name": "status",
+              "kind": "VariableDeclaration",
+              "line": 123,
+              "endLine": 123
+            },
+            {
+              "name": "address",
+              "kind": "VariableDeclaration",
+              "line": 132,
+              "endLine": 132
+            },
+            {
+              "name": "close",
+              "kind": "MethodDeclaration",
+              "line": 139,
+              "endLine": 146
+            },
+            {
+              "name": "job",
+              "kind": "VariableDeclaration",
+              "line": 140,
+              "endLine": 140
+            }
+          ],
+          "contentHash": "19794e4fb7417041737645a7e126861a2b0fbde284c8cdcff83aa048bed55f88",
+          "updatedAt": "2026-09-13T05:43:36.137Z"
+        },
+        {
+          "id": "1036f013-0c5b-44f5-ae9c-e964aa71c5d1",
+          "repositoryId": "taskforge",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "path": "src/revision.ts",
+          "language": "TypeScript",
+          "content": "export const variant = 'corrected';\r\n",
+          "summary": "src/revision.ts is a TypeScript source file with estimated complexity 1. Declared symbols: variant. Extraction: TypeScript compiler AST.",
+          "complexity": 1,
+          "sizeBytes": 37,
+          "imports": [],
+          "symbols": [
+            {
+              "name": "variant",
+              "kind": "VariableDeclaration",
+              "line": 1,
+              "endLine": 1
+            }
+          ],
+          "contentHash": "be856c70deb787fd68da317ace85e864494015642879d97e16cf3e535d9663a8",
+          "updatedAt": "2026-09-13T05:43:36.156Z"
+        },
+        {
+          "id": "ae6a3424-7f2d-4e34-b171-3cf20f568fb8",
+          "repositoryId": "taskforge",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "path": "src/serve.ts",
+          "language": "TypeScript",
+          "content": "import { startFixture, variants, type Variant } from './app';\r\nconst selected = process.env.TASKFORGE_VERSION ?? 'baseline';\r\nif (!variants.includes(selected as Variant))\r\n  throw new Error('TASKFORGE_VERSION must be baseline, defective or corrected');\r\nconst app = await startFixture(selected as Variant, { postgresUrl: process.env.TASKFORGE_DATABASE_URL });\r\nconsole.log(`TaskForge prepared ${selected} fixture: ${app.url} (${app.engine}). Use x-user-id: 1.`);\r\nfor (const signal of ['SIGINT', 'SIGTERM'] as const)\r\n  process.on(signal, () => void app.close().then(() => process.exit(0)));\r\n",
+          "summary": "src/serve.ts is a TypeScript source file with estimated complexity 5. Declared symbols: selected, app, signal. Imports: ./app. Extraction: TypeScript compiler AST.",
+          "complexity": 5,
+          "sizeBytes": 593,
+          "imports": [
+            "./app"
+          ],
+          "symbols": [
+            {
+              "name": "selected",
+              "kind": "VariableDeclaration",
+              "line": 2,
+              "endLine": 2
+            },
+            {
+              "name": "app",
+              "kind": "VariableDeclaration",
+              "line": 5,
+              "endLine": 5
+            },
+            {
+              "name": "signal",
+              "kind": "VariableDeclaration",
+              "line": 7,
+              "endLine": 7
+            }
+          ],
+          "contentHash": "9c0c4b21e09a30692fbc4cc5bbfb5f6910652b0f37a7461ac65ee16300568d3d",
+          "updatedAt": "2026-09-13T05:43:36.166Z"
+        },
+        {
+          "id": "1c83be9b-f272-4d34-b978-98269098a8c4",
+          "repositoryId": "taskforge",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "path": "src/storage.ts",
+          "language": "TypeScript",
+          "content": "import { createClient } from '@libsql/client';\r\nimport pg from 'pg';\r\nimport { randomUUID } from 'node:crypto';\r\n\r\nexport async function createStorage(postgresUrl?: string) {\r\n  const schema = `fixture_${randomUUID().replaceAll('-', '')}`;\r\n  const pool = postgresUrl ? new pg.Pool({ connectionString: postgresUrl, max: 2 }) : null;\r\n  const sqlite = pool ? null : createClient({ url: ':memory:' });\r\n  if (pool) await pool.query(`CREATE SCHEMA ${schema}`);\r\n  async function query(sql: string, args: (string | number)[] = []): Promise<Record<string, any>[]> {\r\n    if (pool) {\r\n      const client = await pool.connect();\r\n      try {\r\n        await client.query(`SET search_path TO ${schema}`);\r\n        let i = 0;\r\n        return (\r\n          await client.query(\r\n            sql.replace(/\\?/g, () => `$${++i}`),\r\n            args,\r\n          )\r\n        ).rows;\r\n      } finally {\r\n        client.release();\r\n      }\r\n    }\r\n    return (await sqlite!.execute({ sql, args })).rows as Record<string, any>[];\r\n  }\r\n  for (const sql of [\r\n    'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',\r\n    'CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',\r\n    'CREATE TABLE memberships (user_id INTEGER NOT NULL, project_id INTEGER NOT NULL)',\r\n    'CREATE TABLE issues (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, title TEXT NOT NULL)',\r\n    'CREATE TABLE comments (id INTEGER PRIMARY KEY, issue_id INTEGER NOT NULL, body TEXT NOT NULL)',\r\n  ])\r\n    await query(sql);\r\n  await query(\"INSERT INTO users VALUES (1,'Ada'),(2,'Linus')\");\r\n  await query(\"INSERT INTO projects VALUES (1,'Platform'),(2,'Private roadmap')\");\r\n  await query('INSERT INTO memberships VALUES (1,1),(2,2)');\r\n  for (let i = 1; i <= 80; i++) {\r\n    await query('INSERT INTO issues VALUES (?,?,?)', [\r\n      i,\r\n      i <= 60 ? 1 : 2,\r\n      `Issue ${String(i).padStart(3, '0')}`,\r\n    ]);\r\n    for (let j = 0; j < 4; j++)\r\n      await query('INSERT INTO comments VALUES (?,?,?)', [i * 10 + j, i, `Comment ${j}`]);\r\n  }\r\n  return {\r\n    query,\r\n    engine: pool ? 'PostgreSQL' : 'SQLite in-memory',\r\n    async close() {\r\n      if (pool) {\r\n        await pool.query(`DROP SCHEMA ${schema} CASCADE`);\r\n        await pool.end();\r\n      }\r\n      sqlite?.close();\r\n    },\r\n  };\r\n}\r\n",
+          "summary": "src/storage.ts is a TypeScript source file with estimated complexity 20. Declared symbols: createStorage, schema, pool, sqlite, query, client, i, sql, i, j, close. Imports: @libsql/client, pg, node:crypto. Extraction: TypeScript compiler AST.",
+          "complexity": 20,
+          "sizeBytes": 2285,
+          "imports": [
+            "@libsql/client",
+            "pg",
+            "node:crypto"
+          ],
+          "symbols": [
+            {
+              "name": "createStorage",
+              "kind": "FunctionDeclaration",
+              "line": 5,
+              "endLine": 59
+            },
+            {
+              "name": "schema",
+              "kind": "VariableDeclaration",
+              "line": 6,
+              "endLine": 6
+            },
+            {
+              "name": "pool",
+              "kind": "VariableDeclaration",
+              "line": 7,
+              "endLine": 7
+            },
+            {
+              "name": "sqlite",
+              "kind": "VariableDeclaration",
+              "line": 8,
+              "endLine": 8
+            },
+            {
+              "name": "query",
+              "kind": "FunctionDeclaration",
+              "line": 10,
+              "endLine": 27
+            },
+            {
+              "name": "client",
+              "kind": "VariableDeclaration",
+              "line": 12,
+              "endLine": 12
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 15,
+              "endLine": 15
+            },
+            {
+              "name": "sql",
+              "kind": "VariableDeclaration",
+              "line": 28,
+              "endLine": 28
+            },
+            {
+              "name": "i",
+              "kind": "VariableDeclaration",
+              "line": 39,
+              "endLine": 39
+            },
+            {
+              "name": "j",
+              "kind": "VariableDeclaration",
+              "line": 45,
+              "endLine": 45
+            },
+            {
+              "name": "close",
+              "kind": "MethodDeclaration",
+              "line": 51,
+              "endLine": 57
+            }
+          ],
+          "contentHash": "16d6ba6634d15370079041a7bc9b3add2a93b1aeb3de09d3968fb4e4c9e65e72",
+          "updatedAt": "2026-09-13T05:43:36.188Z"
+        }
+      ],
+      "edges": [
+        {
+          "id": "94369572-32af-4da8-bd6c-fe165258a51e",
+          "repositoryId": "taskforge",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "sourcePath": "src/app.ts",
+          "targetPath": "src/storage.ts",
+          "kind": "import"
+        },
+        {
+          "id": "2339b6b6-32bc-4bf8-a337-d7b6fc95331c",
+          "repositoryId": "taskforge",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "sourcePath": "src/serve.ts",
+          "targetPath": "src/app.ts",
+          "kind": "import"
+        }
+      ],
+      "findings": [
+        {
+          "id": "427f629e-be0f-4765-afa8-a9ad0d6ee64c",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "repositoryId": "taskforge",
+          "filePath": "src/app.ts",
+          "line": 1,
+          "endLine": 1,
+          "severity": "high",
+          "category": "complexity",
+          "title": "High conditional complexity",
+          "description": "This file has an estimated cyclomatic complexity of 55.",
+          "suggestion": "Split branching logic into smaller, testable functions.",
+          "confidence": 0.7,
+          "source": "static-analysis"
+        },
+        {
+          "id": "2a4b09eb-e1b7-4331-ad72-30ad2b8b0a17",
+          "analysisRunId": "16935590-7396-4f34-b206-4223c87a63ac",
+          "repositoryId": "taskforge",
+          "filePath": "src/storage.ts",
+          "line": 1,
+          "endLine": 1,
+          "severity": "medium",
+          "category": "complexity",
+          "title": "High conditional complexity",
+          "description": "This file has an estimated cyclomatic complexity of 20.",
+          "suggestion": "Split branching logic into smaller, testable functions.",
+          "confidence": 0.7,
+          "source": "static-analysis"
+        }
+      ]
+    }
+  ]
+}

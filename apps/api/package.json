@@ -1,0 +1,36 @@
+{
+  "name": "@codelens/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
+    "rehearsal:record": "tsx src/rehearsal/record.ts",
+    "rehearsal:ci": "tsx src/rehearsal/ci.ts"
+  },
+  "dependencies": {
+    "@codelens/ai": "workspace:*",
+    "@codelens/db": "workspace:*",
+    "@codelens/events": "workspace:*",
+    "@codelens/shared": "workspace:*",
+    "@codelens/taskforge": "workspace:*",
+    "@hono/node-server": "^1.13.7",
+    "bcryptjs": "^2.4.3",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.12",
+    "jose": "^5.9.6",
+    "tsx": "^4.19.2",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.2",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.6.3"
+  }
+}

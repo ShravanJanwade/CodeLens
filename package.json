@@ -1,0 +1,35 @@
+{
+  "name": "codelens-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CodeLens helps developers understand repositories and verify how changes affect behavior and performance.",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env.production scripts/start-production.mjs",
+    "check:config": "node --env-file-if-exists=.env.production scripts/check-config.mjs",
+    "verify:production": "node scripts/verify-production.mjs",
+    "dev": "corepack pnpm run setup && corepack pnpm exec concurrently \"corepack pnpm --filter @codelens/web dev\" \"corepack pnpm --filter @codelens/api dev\"",
+    "setup": "corepack pnpm --filter @codelens/db migrate && corepack pnpm --filter @codelens/db seed",
+    "dev:web": "corepack pnpm --filter @codelens/web dev",
+    "dev:api": "corepack pnpm --filter @codelens/api dev",
+    "build": "corepack pnpm --filter @codelens/web build && corepack pnpm --filter @codelens/api build",
+    "build:web": "corepack pnpm --filter @codelens/web build",
+    "build:api": "corepack pnpm --filter @codelens/api build",
+    "test": "corepack pnpm -r test",
+    "lint": "corepack pnpm exec prettier --check \"apps/web/src/**/*.{ts,tsx,css}\" \"apps/api/src/rehearsal/**/*.ts\" \"apps/edge/src/**/*.ts\"",
+    "typecheck": "corepack pnpm -r typecheck",
+    "db:migrate": "corepack pnpm --filter @codelens/db migrate",
+    "db:seed": "corepack pnpm --filter @codelens/db seed",
+    "clean": "corepack pnpm -r clean",
+    "rehearsal:record": "corepack pnpm --filter @codelens/api rehearsal:record"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@12.3.4"
+}
