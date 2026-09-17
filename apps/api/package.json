@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/**/*.test.ts",
     "rehearsal:record": "tsx src/rehearsal/record.ts",
-    "rehearsal:ci": "tsx src/rehearsal/ci.ts"
+    "rehearsal:ci": "tsx src/rehearsal/ci.ts",
+    "bench:diagnosis": "tsx src/pipeline/benchmark.ts"
   },
   "dependencies": {
     "@codelens/ai": "workspace:*",

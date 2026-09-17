@@ -5,7 +5,9 @@ import { createEvent, InMemoryEventBus } from './index';
 test('event bus delivers the typed event and supports unsubscribe', async () => {
   const bus = new InMemoryEventBus();
   const delivered: string[] = [];
-  const unsubscribe = bus.subscribe('IncidentCreated', (event) => { delivered.push(event.correlationId); });
+  const unsubscribe = bus.subscribe('IncidentCreated', (event) => {
+    delivered.push(event.correlationId);
+  });
   await bus.publish(createEvent('IncidentCreated', 'test', 'INC-1042', { incidentId: 'INC-1042' }));
   unsubscribe();
   await bus.publish(createEvent('IncidentCreated', 'test', 'INC-1043', { incidentId: 'INC-1043' }));

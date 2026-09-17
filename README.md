@@ -1,89 +1,236 @@
 # CodeLens
 
-CodeLens helps developers understand their repositories and verify how code changes affect application behavior and performance.
+**Root-cause analysis for CI/CD pipelines.** When a pipeline goes red, CodeLens
+reads the stage logs, the run history and the deploy topology, and tells you
+*why* — which region, which branch, which commit, which test — and whether your
+change is even to blame.
 
-Create an account with email/password or GitHub OAuth, connect your GitHub repositories, choose a live branch, and index its latest commit. Inspect source and symbols, ask source-grounded questions, compare changes, follow real CI/CD and security evidence, and prepare reviewed draft pull requests. **Release Rehearsal** adds measured behavior/performance investigations for the prepared TaskForge application.
+> **[Open the live demo →](https://codelens-96py.onrender.com/demo)**
+> No sign-in. Drops straight into a seeded five-service monorepo with 41 real
+> pipeline runs across three production regions.
 
-**Ready to host it? Start with [Full workspace deployment, OAuth and environment setup](docs/deploy-full-workspace.md) and [.env.production.example](.env.production.example).** The full Node app and the public Cloudflare demo have different capabilities; the guide explains both.
+---
 
-**Start the product tour on the landing page.** The recorded investigation is public; personal workspace pages require sign-in. Connect a repository → select and index a branch → explore its file tree and ask about selected lines → inspect file connections and review suggestions → compare commits through the guided investigation → prepare a reviewed change. See [the demonstration walkthrough](docs/recruiter-demo.md) for a short problem-to-evidence presentation.
+## The problem
 
-## Start locally
+CI gives you an exit code and ten thousand lines of log. Deciding whether you
+are actually blocked means reading them, comparing against yesterday's run,
+checking whether the failing test is a known flake, and noticing that only one
+region failed. That is archaeology, and it happens on every red build.
 
-Requires Node.js 22+ and Git. The workspace pins pnpm through Corepack.
+Three questions are hard specifically because a single run does not contain the
+answer:
 
-```sh
-corepack pnpm install --frozen-lockfile
-corepack pnpm run setup
-corepack pnpm dev
+| Question | Why it's hard | What CodeLens does |
+| --- | --- | --- |
+| Why is it red? | An assertion failure, an OOM kill and a rejected credential all exit 1 | Classifies the failure into one of 8 root causes with the evidence that produced the verdict |
+| Is my change at fault? | A flake and a regression look identical in one run — the difference is only visible across branches over time | Uses per-test flake history and cross-branch spread to clear or convict the commit |
+| What does this change touch? | The diff shows what changed, not what depends on it | Walks the repository's import graph backwards to find every downstream file, service and endpoint |
+
+## Measured results
+
+Every number here is produced by committed code, not estimated. The command to
+reproduce each one is in the row.
+
+| Metric | Value | Reproduce |
+| --- | --- | --- |
+| Root-cause accuracy | **95.8%** over 240 labelled failures | `pnpm --filter @codelens/api bench:diagnosis` |
+| — on the adversarial subset | **88.9%** over 90 cases with a decoy signal | same |
+| — log-pattern matching alone | **75.0%** (−20.8pp) | ablation, printed by the same command |
+| Classification latency | **p95 under 0.1ms**, no model call | same |
+| Blast radius traversal | **32 files / 4 services / 10 endpoints** from one leaf module, in single-digit ms | demo → Change impact |
+| Test suite | **50 tests** across the engine, the API and integration | `pnpm test` |
+
+### Read the accuracy number honestly
+
+The benchmark corpus is synthetic and was authored alongside the rules, so
+95.8% is an **upper bound, not a field result**. The product says so on its own
+benchmark page. The parts that survive that objection are:
+
+- **The ablation.** Withholding evidence sources and re-scoring shows what each
+  input is actually worth: log patterns alone reach 75.0%, flake history is
+  worth +9.6pp, region topology +8.3pp. A bare accuracy figure cannot
+  distinguish a good model from an easy test set; this can.
+- **The adversarial split.** 90 of the 240 cases carry a decoy — a runner
+  OOM-killed while assertions were failing, a 401 arriving during a
+  config-driven outage, a regression in a file that also owns a known flake.
+  Accuracy there is 88.9%.
+- **The failures are published.** Every misclassification is listed on the
+  benchmark page. Most are the engine declining to guess on genuinely contested
+  cases rather than asserting a cause it cannot support.
+- **A regression gate.** The benchmark CLI exits non-zero below 85%, so the
+  number cannot silently rot.
+
+## How the diagnosis engine works
+
+`packages/shared/src/diagnosis.ts` is a pure, dependency-free module. It takes a
+`FailureContext` — one stage's log, the run's branch and diff, and the relevant
+history — and returns a verdict with its supporting evidence.
+
+**1. Signals.** Five readers extract evidence, each tagged with its provenance:
+
+| Source | Reads | Example signal |
+| --- | --- | --- |
+| `log` | 15 ordered log signatures | `oom-kill`, `auth-expired`, `dep-resolution` |
+| `history` | per-test flake rates, cross-branch spread, previous run status | `all-failures-known-flaky`, `branch-was-green` |
+| `topology` | sibling deploy results per region, config divergence | `region-isolated-failure` |
+| `diff` | changed paths vs. failing modules | `diff-touches-failing-area` |
+| `metrics` | runner memory/disk, duration vs. baseline | `runner-memory-saturated` |
+
+**2. Combination.** Weights per category combine with **noisy-OR**
+(`1 - ∏(1 - wᵢ)`) rather than a sum, so two 0.6 signals read as "very likely"
+(0.84) instead of "impossible" (1.2), and diminishing returns come for free.
+
+**3. Suppression.** This is the part that makes it work. Some evidence rules a
+cause *out*, and without that the engine confuses flakes and regressions
+constantly — both accumulate "tests failed" evidence. For example:
+
+```ts
+// A process killed by the runtime reports every unfinished test as
+// failed, so its test results carry almost no information.
+'oom-kill': { 'code-regression': 0.35, 'flaky-test': 0.5 },
+// Known-flaky across branches means this diff is not the cause.
+'all-failures-known-flaky': { 'code-regression': 0.3 },
 ```
 
-Open [the workspace](http://127.0.0.1:3010). Hono runs on port 4000. The default provider is deterministic and requires no key. Copy `.env.example` to `.env` for optional configuration.
+Adding those three OOM suppressions moved accuracy on the adversarial subset
+from 83.3% to 100% — the assertion noise from a half-run suite had been
+outweighing the single kill line that actually explained the failure.
 
-The homepage explains the problem and the workflow. Sign up to manage your own repositories, then connect GitHub from **Account & GitHub**. **Investigations** offers two paths: a guided comparison for your own repository, or the completed TaskForge example. The example needs no login, Gemini, Docker or fresh execution. Recorded results are labeled with their actual timestamp and database engine.
+**4. Confidence.** Discounted by how close the runner-up is, so a 0.7-vs-0.1
+call and a 0.7-vs-0.68 coin flip are not reported with equal certainty. Below a
+floor the engine returns `unknown` rather than guessing.
 
-If default ports are occupied, run the API with `PORT=4010` and Vite with `API_PROXY_TARGET=http://127.0.0.1:4010` and `--port 3010`. Environment variable syntax depends on the shell.
-
-## What works
-
-- Email/password and GitHub OAuth accounts, persisted cookie sessions, encrypted GitHub tokens, and repository ownership boundaries.
-- Account repository selection, live GitHub branch discovery, branch-aware latest indexing, and confirmed deletion of local repository data.
-- Saved own-repository investigations, exact-commit CI matching, workflow job/step inspection, deployments, PR mergeability, security alerts, and signed per-repository webhooks.
-- Reviewed source/workflow edits published as new branches and draft pull requests, with stale-base protection and retry deduplication.
-- Revision-scoped source files, compiler-based JS/TS symbols, partial relative-import navigation, indexing progress, historical snapshots, heuristic static findings, and navigable source citations.
-- TaskForge baseline/candidate/correction comparisons using actual HTTP requests, seeded data and SQL instrumentation. The prepared defective version exposes a permission regression, repeated database queries and background-work contention.
-- Two warmup-separated measurement repetitions, achieved throughput, errors, request traces, query counts/durations, and explicit inconclusive timing outcomes.
-- One bounded investigator with configurable Gemini support through the existing provider interface. Deterministic execution/reporting continues when AI is unavailable.
-- Worker configuration experiments, held-out validation, repository-linked findings and reports.
-- Transactional run creation, idempotency, leases, completed checkpoints, bounded retries, cancellation and interrupted-stage recovery.
-- A responsive React workspace, recorded demo bundle, and a separate Cloudflare Worker/D1 + trusted GitHub Actions deployment path.
-
-The runtime executor supports **only the prepared TaskForge application**, not arbitrary repository builds. Other authorized public/private repositories support source intelligence and GitHub CI investigations. SQLite is the locally verified fixture engine; PostgreSQL and optional Playwright journeys have runnable configuration and must be verified in the target environment.
-
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `corepack pnpm dev` | Migrate/seed and start the local workspace |
-| `corepack pnpm typecheck` | Check workspace TypeScript |
-| `corepack pnpm test` | Run API integration and event-bus tests |
-| `corepack pnpm build` | Build React and Hono |
-| `corepack pnpm check:config` | Validate the production environment without printing secrets |
-| `corepack pnpm start` | Validate, migrate, and serve the full production app |
-| `corepack pnpm verify:production` | Verify production routing and authentication in an isolated database |
-| `corepack pnpm lint` | Check formatting of the active frontend/runner/edge implementation |
-| `corepack pnpm rehearsal:record` | Produce a real recorded fixture report and source catalog |
-| `corepack pnpm --filter @codelens/taskforge start` | Run one prepared fixture version |
-
-For PostgreSQL, run `docker compose -f examples/taskforge/compose.yml up -d` and set `TASKFORGE_DATABASE_URL` as described in `.env.example`. For Chromium journey stages, install Playwright Chromium through the API package and set `PLAYWRIGHT_JOURNEYS=true`. These are optional for local HTTP-only exploration.
+The result ships the signals that supported the verdict **and** the ones that
+argued against it, so a reader can check the reasoning instead of trusting a
+score.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Web[React repository workspace] --> API[Hono local API]
-  API --> Index[Bounded source indexer]
-  API --> DB[(SQLite / Drizzle)]
-  DB --> Runner[Leased rehearsal executor]
-  Runner --> Fixture[Trusted TaskForge application]
-  Runner --> AI[Gemini / Ollama / deterministic fallback]
-  Web --> Edge[Optional hosted Worker]
-  Edge --> D1[(D1 metadata)]
-  Edge --> CI[Allowlisted GitHub Actions workflow]
-  CI --> Fixture
-  CI --> D1
+  Web["apps/web · React 19<br/>flow DAG, region matrix, impact"]
+  API["apps/api · Hono<br/>composed read endpoints"]
+  Engine["packages/shared<br/>diagnosis + blast radius<br/>(pure, no I/O)"]
+  DB[("packages/db · SQLite/Drizzle<br/>runs · stages · environments<br/>deployments · flake history")]
+  Bench["bench:diagnosis<br/>240-case scored corpus"]
+
+  Web --> API
+  API --> Engine
+  API --> DB
+  Bench --> Engine
+  Bench --> DB
+  GitHub["GitHub OAuth · signed webhooks"] --> API
 ```
 
-No repository credentials, Gemini keys or workflow-dispatch tokens are shipped to the browser. The edge adapter does not import Node/libSQL or execute clones, browsers or application code inside Worker requests. New repository connections require an account; owned repositories enforce owner identity. Preexisting anonymous connections are read-only and can be reconnected into an account.
+The engine has no database or network dependency, which is what lets the same
+code path serve the API and the scoring harness. That is the reason the accuracy
+number describes the shipped product rather than a separate script.
 
-## Guides and verification
+**Design decisions worth noting**
+
+- **One composed endpoint per screen.** `/delivery-overview` returns
+  environments, pipelines, runs and derived stats in a single request. The
+  screen is useless partially loaded, so a waterfall of six calls buys nothing.
+- **The DAG is a real graph.** Stages carry `sequence`, `lane` and `dependsOn`,
+  so parallel region deploys share a level and render side by side. Laying them
+  out as a list would destroy the comparison the product exists to make.
+- **Layout is computed, not measured.** Node positions are pure functions of
+  `(sequence, lane)`, so SVG edges are correct on first paint with no
+  `ResizeObserver` and no reflow pass.
+- **Impact travels backwards.** The import graph points the way code reads;
+  risk propagates the other way, so every traversal runs over the reversed
+  graph. BFS means `depth` and the path back to the diff are correct in one
+  pass.
+- **Risk scores are decomposable.** Additive and capped, with every point
+  traceable to a stated reason. An opaque 0–100 gets ignored after a week.
+
+## Run it locally
+
+Requires Node.js 22+ and Git. pnpm is pinned through Corepack.
+
+```sh
+corepack pnpm install
+corepack pnpm run setup          # migrate + seed the demo workspace
+corepack pnpm dev                # web on :3000, API on :4000
+```
+
+Open <http://localhost:3000/demo> for the seeded workspace. No account needed.
+
+```sh
+corepack pnpm test               # 50 tests: engine, API, integration
+corepack pnpm bench              # score the diagnosis benchmark
+corepack pnpm typecheck
+corepack pnpm build
+```
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm run setup` | Run migrations, then seed the demo repository |
+| `pnpm db:seed:demo` | Rebuild only the demo workspace (idempotent) |
+| `pnpm bench` | Re-score the classifier and print the ablation |
+| `pnpm start` | Validate config, migrate, serve the built app on one port |
+| `pnpm check:config` | Validate production environment without printing secrets |
+
+The demo seed is deterministic — a fixed PRNG seed means the same repository,
+graph, run history and verdicts on every machine. Diagnoses are **not** authored
+in the seed: every failed run builds a `FailureContext` and calls the real
+classifier, so what the demo shows is what the engine produced.
+
+## What's real and what isn't
+
+Being precise about this matters more than the feature list.
+
+**Real:**
+
+- The diagnosis engine, its benchmark, the ablation and the accuracy gate.
+- The blast-radius traversal, risk scoring and coverage-gap detection.
+- GitHub OAuth, encrypted token storage, signed per-repository webhooks,
+  repository ownership boundaries, cookie sessions with CSRF protection.
+- Repository indexing: revision-scoped files, compiler-based JS/TS symbols,
+  import-graph extraction. Connect a real repository and the same analysis runs
+  on your code.
+- Release Rehearsal, under **More tools** — executes the prepared TaskForge
+  fixture over real HTTP with SQL instrumentation and measures p95 latency and
+  query counts. It caught a 2 → 22 query N+1 regression, which is asserted in
+  the test suite.
+
+**Seeded, and labelled as such in the UI:**
+
+- The `northwind/commerce-platform` demo repository, its 41 pipeline runs and
+  its three production regions. The demo banner says so on every screen.
+- The benchmark corpus is synthetic, as discussed above.
+
+**Not built:**
+
+- No live GitHub Actions ingestion — webhooks are received and verified, but the
+  pipeline model is populated by the seed rather than by polling the Actions
+  API. That is the next piece of work, and the schema is shaped for it.
+- The runtime executor only supports the prepared TaskForge fixture, not
+  arbitrary repository builds.
+- PostgreSQL and Playwright journeys have runnable configuration but are
+  verified only against SQLite locally.
+
+## Repository layout
+
+```
+apps/
+  web/        React 19 SPA — flow DAG, region matrix, impact, benchmark
+  api/        Hono API + diagnosis benchmark harness
+  edge/       Cloudflare Worker/D1 deployment path
+  extension/  Chrome extension for in-GitHub context
+packages/
+  shared/     diagnosis.ts, blast-radius.ts — pure domain logic
+  db/         Drizzle schema, idempotent migrations, deterministic seed
+  ai/         provider interface (Gemini / Ollama / deterministic)
+  events/     in-process event bus
+examples/
+  taskforge/  instrumented fixture app for Release Rehearsal
+```
+
+## Further reading
 
 - [Architecture, execution model and limitations](docs/release-platform.md)
-- [Full workspace deployment, OAuth, environment variables and operation](docs/deploy-full-workspace.md)
-- [Free public demo deployment with Worker/D1](docs/free-deployment.md)
-- [Tests and actual verification results](docs/verification.md)
-- [Recruiter demo and evidence-supported resume statements](docs/recruiter-demo.md)
-- [GitHub webhook integration](docs/github-integration.md)
-- [Preserved legacy incident guide](docs/legacy-incident-guide.md)
-
-The old incident simulator, service views, approval records and CI triage remain under secondary navigation. Their simulated telemetry is separate from real release evidence. Public publishing, live Gemini verification, and target CI/PostgreSQL verification are not claimed until their required account/runtime setup has been completed.
+- [Deployment, OAuth and environment setup](docs/deploy-full-workspace.md)
+- [Tests and verification results](docs/verification.md)
+- [Résumé claims and where each number comes from](docs/resume-claims.md)

@@ -65,3 +65,6 @@ project_setup.sh
 .dev.vars
 test-results/
 playwright-report/
+
+# TypeScript incremental build state — machine-local, never useful in a diff
+*.tsbuildinfo

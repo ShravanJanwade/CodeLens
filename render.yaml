@@ -1,0 +1,73 @@
+# ============================================================
+# Render blueprint
+# ============================================================
+# One web service on one origin: the API serves the built SPA, which
+# keeps cookie auth and the GitHub OAuth callback on a single origin
+# and avoids a CORS configuration that has to be kept in sync.
+#
+# The persistent disk matters. SQLite on Render's ephemeral filesystem
+# loses every connected repository on each deploy; mounting a disk at
+# /data and pointing DATABASE_URL there is what makes accounts
+# survive a restart. The demo workspace is re-seeded on boot either
+# way, so the public demo works even on a fresh disk.
+# ============================================================
+
+services:
+  - type: web
+    name: codelens
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # the free plan has no persistent disk
+    healthCheckPath: /health
+    autoDeploy: true
+
+    disk:
+      name: codelens-data
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      - key: PORT
+        value: 4000
+
+      # Absolute path on the mounted disk. check-config.mjs rejects a
+      # relative path precisely to stop this silently landing on
+      # ephemeral storage.
+      - key: DATABASE_URL
+        value: /data/codelens.db
+
+      # Must exactly match the public origin: no trailing slash, no
+      # path. check-config.mjs refuses to boot otherwise, because a
+      # mismatch breaks cookie auth and the OAuth callback in ways that
+      # are painful to debug from a 500.
+      #
+      # For the existing deployment this is:
+      #   https://codelens-96py.onrender.com
+      #
+      # Left as sync:false so a fork or a second environment has to set
+      # its own rather than inheriting this one.
+      - key: APP_ORIGIN
+        sync: false
+
+      # Generate with: openssl rand -base64 48
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TOKEN_ENCRYPTION_KEY
+        generateValue: true
+
+      # Deterministic provider; no API key required. Switch to gemini
+      # and add GEMINI_API_KEY + GEMINI_MODEL to enable the AI paths.
+      - key: AI_PROVIDER
+        value: demo
+
+      # Optional. Set both or neither; email sign-in works without
+      # them. Callback URL: <APP_ORIGIN>/api/v1/auth/github/callback
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+      # Set to false on a deployment that should only serve real
+      # repositories.
+      - key: SEED_DEMO
+        value: true
