@@ -12,5 +12,7 @@ dotenv.config({ path: path.join(workspaceRoot, '.env') });
  */
 const configuredPath = process.env.DATABASE_URL;
 export const databasePath = configuredPath
-  ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(workspaceRoot, configuredPath))
+  ? path.isAbsolute(configuredPath)
+    ? configuredPath
+    : path.resolve(workspaceRoot, configuredPath)
   : path.join(workspaceRoot, 'data', 'codelens.db');

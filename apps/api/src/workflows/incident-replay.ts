@@ -182,18 +182,16 @@ async function evidence(
   data: object,
   significance: 'supporting' | 'contradicting' | 'neutral' = 'supporting',
 ) {
-  await db
-    .insert(schema.incidentEvidence)
-    .values({
-      id: uid(),
-      incidentId,
-      type,
-      source,
-      description,
-      data: JSON.stringify(data),
-      significance,
-      timestamp: now(),
-    });
+  await db.insert(schema.incidentEvidence).values({
+    id: uid(),
+    incidentId,
+    type,
+    source,
+    description,
+    data: JSON.stringify(data),
+    significance,
+    timestamp: now(),
+  });
 }
 
 async function recordAgentStep(
@@ -207,36 +205,32 @@ async function recordAgentStep(
 ) {
   const stepId = uid();
   const startedAt = now();
-  await db
-    .insert(schema.agentSteps)
-    .values({
-      id: stepId,
-      agentRunId: runId,
-      sequenceNumber: sequence,
-      agentType,
-      action,
-      status: 'completed',
+  await db.insert(schema.agentSteps).values({
+    id: stepId,
+    agentRunId: runId,
+    sequenceNumber: sequence,
+    agentType,
+    action,
+    status: 'completed',
+    input: JSON.stringify(input),
+    output: JSON.stringify(output),
+    startedAt,
+    completedAt: now(),
+    durationMs: 12,
+  });
+  if (tool)
+    await db.insert(schema.toolCalls).values({
+      id: uid(),
+      agentStepId: stepId,
+      toolName: tool.name,
+      toolType: tool.type,
       input: JSON.stringify(input),
       output: JSON.stringify(output),
+      status: 'completed',
       startedAt,
       completedAt: now(),
       durationMs: 12,
     });
-  if (tool)
-    await db
-      .insert(schema.toolCalls)
-      .values({
-        id: uid(),
-        agentStepId: stepId,
-        toolName: tool.name,
-        toolType: tool.type,
-        input: JSON.stringify(input),
-        output: JSON.stringify(output),
-        status: 'completed',
-        startedAt,
-        completedAt: now(),
-        durationMs: 12,
-      });
   return stepId;
 }
 
@@ -264,55 +258,47 @@ export async function runScenario(scenarioId: string, events: WorkflowEvents) {
 
   const runId = uid();
   const incidentId = `INC-${Math.floor(1000 + Math.random() * 9000)}`;
-  await db
-    .insert(schema.scenarioRuns)
-    .values({
-      id: runId,
-      scenarioId: scenario.id,
-      scenarioName: scenario.name,
-      status: 'running',
-      startedAt: now(),
-    });
+  await db.insert(schema.scenarioRuns).values({
+    id: runId,
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    status: 'running',
+    startedAt: now(),
+  });
   for (const metric of scenario.metrics) {
-    await db
-      .insert(schema.telemetryEvents)
-      .values({
-        id: uid(),
-        serviceId: service.id,
-        scenarioRunId: runId,
-        type: 'metric',
-        name: metric.name,
-        value: metric.failing,
-        labels: JSON.stringify({ unit: metric.unit, baseline: metric.baseline }),
-        timestamp: now(),
-      });
+    await db.insert(schema.telemetryEvents).values({
+      id: uid(),
+      serviceId: service.id,
+      scenarioRunId: runId,
+      type: 'metric',
+      name: metric.name,
+      value: metric.failing,
+      labels: JSON.stringify({ unit: metric.unit, baseline: metric.baseline }),
+      timestamp: now(),
+    });
   }
-  await db
-    .insert(schema.telemetryEvents)
-    .values({
-      id: uid(),
-      serviceId: service.id,
-      scenarioRunId: runId,
-      type: 'log',
-      name: 'application_error',
-      level: 'error',
-      message: scenario.errorMessage,
-      labels: '{}',
-      timestamp: now(),
-    });
-  await db
-    .insert(schema.telemetryEvents)
-    .values({
-      id: uid(),
-      serviceId: service.id,
-      scenarioRunId: runId,
-      type: 'trace',
-      name: 'failing_request',
-      traceId: uid(),
-      message: `Trace captures ${scenario.name}`,
-      labels: '{}',
-      timestamp: now(),
-    });
+  await db.insert(schema.telemetryEvents).values({
+    id: uid(),
+    serviceId: service.id,
+    scenarioRunId: runId,
+    type: 'log',
+    name: 'application_error',
+    level: 'error',
+    message: scenario.errorMessage,
+    labels: '{}',
+    timestamp: now(),
+  });
+  await db.insert(schema.telemetryEvents).values({
+    id: uid(),
+    serviceId: service.id,
+    scenarioRunId: runId,
+    type: 'trace',
+    name: 'failing_request',
+    traceId: uid(),
+    message: `Trace captures ${scenario.name}`,
+    labels: '{}',
+    timestamp: now(),
+  });
 
   const incident = {
     id: incidentId,
@@ -327,22 +313,20 @@ export async function runScenario(scenarioId: string, events: WorkflowEvents) {
     approvalState: 'pending' as const,
   };
   await db.insert(schema.incidents).values(incident);
-  await db
-    .insert(schema.alerts)
-    .values({
-      id: uid(),
-      fingerprint,
-      serviceId: service.id,
-      severity: scenario.severity,
-      title: scenario.title,
-      description: scenario.description,
-      metric: scenario.metrics[0].name,
-      threshold: scenario.metrics[0].baseline,
-      currentValue: scenario.metrics[0].failing,
-      firedAt: now(),
-      incidentId,
-      status: 'firing',
-    });
+  await db.insert(schema.alerts).values({
+    id: uid(),
+    fingerprint,
+    serviceId: service.id,
+    severity: scenario.severity,
+    title: scenario.title,
+    description: scenario.description,
+    metric: scenario.metrics[0].name,
+    threshold: scenario.metrics[0].baseline,
+    currentValue: scenario.metrics[0].failing,
+    firedAt: now(),
+    incidentId,
+    status: 'firing',
+  });
   await db.update(schema.scenarioRuns).set({ incidentId }).where(eq(schema.scenarioRuns.id, runId));
   await timeline(
     incidentId,
@@ -386,17 +370,15 @@ export async function runScenario(scenarioId: string, events: WorkflowEvents) {
     );
 
   const agentRunId = uid();
-  await db
-    .insert(schema.agentRuns)
-    .values({
-      id: agentRunId,
-      incidentId,
-      status: 'running',
-      startedAt: now(),
-      totalSteps: 0,
-      totalToolCalls: 0,
-      model: 'deterministic-demo-workflow',
-    });
+  await db.insert(schema.agentRuns).values({
+    id: agentRunId,
+    incidentId,
+    status: 'running',
+    startedAt: now(),
+    totalSteps: 0,
+    totalToolCalls: 0,
+    model: 'deterministic-demo-workflow',
+  });
   await db.update(schema.incidents).set({ agentRunId }).where(eq(schema.incidents.id, incidentId));
   await timeline(
     incidentId,
@@ -494,20 +476,18 @@ export async function runScenario(scenarioId: string, events: WorkflowEvents) {
   await events.emit('HypothesisUpdated', incidentId, { incidentId, confirmed: scenario.name });
 
   const planId = uid();
-  await db
-    .insert(schema.remediationPlans)
-    .values({
-      id: planId,
-      incidentId,
-      action: scenario.remediation.action,
-      targetService: scenario.service,
-      description: scenario.remediation.description,
-      risk: scenario.remediation.risk,
-      evidence: JSON.stringify(['Telemetry anomaly', 'Error log sample', 'Trace evidence']),
-      parameters: JSON.stringify({ targetVersion: scenario.remediation.targetVersion }),
-      status: 'awaiting_approval',
-      createdAt: now(),
-    });
+  await db.insert(schema.remediationPlans).values({
+    id: planId,
+    incidentId,
+    action: scenario.remediation.action,
+    targetService: scenario.service,
+    description: scenario.remediation.description,
+    risk: scenario.remediation.risk,
+    evidence: JSON.stringify(['Telemetry anomaly', 'Error log sample', 'Trace evidence']),
+    parameters: JSON.stringify({ targetVersion: scenario.remediation.targetVersion }),
+    status: 'awaiting_approval',
+    createdAt: now(),
+  });
   await recordAgentStep(
     agentRunId,
     7,
@@ -622,25 +602,23 @@ export async function resolveApprovedIncident(incidentId: string, events: Workfl
       .update(schema.agentRuns)
       .set({ status: 'completed', completedAt: now(), totalSteps: 9, totalToolCalls: 6 })
       .where(eq(schema.agentRuns.id, agentRun.id));
-  await db
-    .insert(schema.evaluationRuns)
-    .values({
-      id: uid(),
-      scenarioId: scenario.id,
-      scenarioName: scenario.name,
-      status: 'completed',
-      detectionLatencyMs: 2000,
-      investigationLatencyMs: 7000,
-      totalToolCalls: 6,
-      incorrectToolCalls: 0,
-      rootCauseAccuracy: scenario.confidence,
-      remediationSuccess: true,
-      recoveryVerified: true,
-      totalAgentSteps: 9,
-      model: 'deterministic-demo-workflow',
-      startedAt: scenarioRun.startedAt,
-      completedAt: now(),
-    });
+  await db.insert(schema.evaluationRuns).values({
+    id: uid(),
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    status: 'completed',
+    detectionLatencyMs: 2000,
+    investigationLatencyMs: 7000,
+    totalToolCalls: 6,
+    incorrectToolCalls: 0,
+    rootCauseAccuracy: scenario.confidence,
+    remediationSuccess: true,
+    recoveryVerified: true,
+    totalAgentSteps: 9,
+    model: 'deterministic-demo-workflow',
+    startedAt: scenarioRun.startedAt,
+    completedAt: now(),
+  });
   await timeline(
     incidentId,
     'recovery_verified',

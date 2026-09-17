@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'node:path';
 import { databasePath } from './database-path';
 import { migrateReleases } from './release-migration';
+import { migratePipelines } from './pipeline-migration';
 
 const DB_PATH = databasePath;
 
@@ -23,7 +24,7 @@ async function migrate() {
   }
 
   const client = createClient({ url: `file:${DB_PATH}` });
-  
+
   // Enable WAL mode for better concurrent read performance
   await client.execute('PRAGMA journal_mode = WAL;');
   // Enable foreign keys
@@ -365,8 +366,12 @@ async function migrate() {
   `);
 
   await migrateReleases(client);
+  await migratePipelines(client);
   client.close();
   console.log('✅ All tables created successfully');
 }
 
-migrate().catch(error => { console.error(error); process.exitCode = 1; });
+migrate().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

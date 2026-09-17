@@ -1,0 +1,1397 @@
+/* ============================================================
+   CodeLens — Delivery pipeline views
+   ------------------------------------------------------------
+   The flow graph, region matrix, diagnosis panel, log viewer and
+   blast-radius surfaces.
+   ============================================================ */
+
+/* ============================================================
+   Page scaffold
+   ============================================================ */
+
+.dl-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  max-width: 1480px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.dl-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-5);
+  flex-wrap: wrap;
+}
+
+/* A flex basis, not just flex-grow. With plain `flex: 1` the action
+   buttons won the space contest on narrow screens and squeezed the
+   title column to about 30px, wrapping the description one word per
+   line. A basis makes the actions wrap to their own row instead. */
+.dl-head-main {
+  min-width: 0;
+  flex: 1 1 300px;
+}
+
+.dl-head h1 {
+  font-size: var(--t-h2);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.dl-head p {
+  color: var(--c-ink-3);
+  font-size: var(--t-sm);
+  margin-top: var(--s-2);
+  max-width: 74ch;
+}
+
+.dl-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   Metric strip
+   ============================================================ */
+
+.dl-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 1px;
+  background: var(--c-line);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.dl-metric {
+  background: var(--c-panel);
+  padding: var(--s-4) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dl-metric-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-ink-4);
+}
+
+.dl-metric-top svg {
+  color: var(--c-ink-4);
+}
+
+.dl-metric-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.dl-metric-value small {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--c-ink-3);
+  letter-spacing: 0;
+}
+
+.dl-metric-note {
+  font-size: var(--t-xs);
+  color: var(--c-ink-3);
+  line-height: 1.4;
+}
+
+.dl-metric.accent .dl-metric-value {
+  color: var(--c-brand-ink);
+}
+
+.dl-metric.pass .dl-metric-value {
+  color: var(--c-pass-ink);
+}
+
+.dl-metric.fail .dl-metric-value {
+  color: var(--c-fail-ink);
+}
+
+/* ============================================================
+   Flow graph
+   ============================================================ */
+
+.flow {
+  position: relative;
+  background:
+    radial-gradient(1200px 400px at 12% -10%, rgba(109, 94, 252, 0.07), transparent 70%), var(--c-panel);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.flow-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+  flex-wrap: wrap;
+}
+
+.flow-bar-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.flow-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-left: auto;
+  font-size: var(--t-micro);
+  color: var(--c-ink-3);
+  flex-wrap: wrap;
+}
+
+.flow-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The scroll viewport. A production pipeline is wider than any
+   screen, so horizontal scrolling is the honest layout -- scaling it
+   to fit makes the stage labels unreadable. */
+.flow-scroll {
+  overflow: auto;
+  padding: var(--s-6) var(--s-6) var(--s-5);
+  /* Grid paper, so distance in the graph is legible. */
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.017) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.017) 1px, transparent 1px);
+  background-size: 28px 28px;
+  scroll-behavior: smooth;
+}
+
+.flow-canvas {
+  position: relative;
+  transform-origin: 0 0;
+  transition: transform var(--m-base) var(--m-ease);
+}
+
+.flow-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.flow-edge {
+  fill: none;
+  stroke: var(--c-line-strong);
+  stroke-width: 1.5;
+  transition:
+    stroke var(--m-base) var(--m-ease),
+    stroke-width var(--m-base) var(--m-ease),
+    opacity var(--m-base) var(--m-ease);
+}
+
+.flow-edge.is-pass {
+  stroke: rgba(47, 212, 143, 0.42);
+}
+
+.flow-edge.is-fail {
+  stroke: var(--c-fail);
+  stroke-width: 2;
+}
+
+.flow-edge.is-run {
+  stroke: var(--c-run);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  animation: edge-march 900ms linear infinite;
+}
+
+.flow-edge.is-skip {
+  stroke: var(--c-line-strong);
+  stroke-dasharray: 3 4;
+  opacity: 0.55;
+}
+
+/* Dims every edge that is not on the selected node's path. */
+.flow-edge.is-muted {
+  opacity: 0.14;
+}
+
+@keyframes edge-march {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.flow-column-label {
+  position: absolute;
+  top: -22px;
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-ink-4);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Stage node
+   ============================================================ */
+
+.stage {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: var(--s-3) var(--s-4);
+  background: var(--c-panel-2);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--e-2), var(--e-lip);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--m-fast) var(--m-ease),
+    background var(--m-fast) var(--m-ease),
+    box-shadow var(--m-base) var(--m-ease),
+    transform var(--m-fast) var(--m-ease),
+    opacity var(--m-base) var(--m-ease);
+}
+
+.stage:hover {
+  background: var(--c-panel-3);
+  border-color: var(--c-line-bright);
+  transform: translateY(-1px);
+  box-shadow: var(--e-3);
+}
+
+.stage.is-selected {
+  border-color: var(--c-brand);
+  box-shadow:
+    0 0 0 3px var(--c-brand-wash),
+    var(--e-3);
+}
+
+/* A 3px status rail down the left edge: the whole graph is readable
+   at a glance from the rails alone, before reading any label. */
+.stage::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--s-3);
+  bottom: var(--s-3);
+  width: 3px;
+  border-radius: var(--r-pill);
+  background: var(--c-idle);
+}
+
+.stage.s-success::before {
+  background: var(--c-pass);
+}
+
+.stage.s-failed::before {
+  background: var(--c-fail);
+}
+
+.stage.s-running::before {
+  background: var(--c-run);
+}
+
+.stage.s-skipped::before,
+.stage.s-pending::before {
+  background: var(--c-line-bright);
+}
+
+.stage.s-cancelled::before {
+  background: var(--c-warn);
+}
+
+.stage.s-failed {
+  border-color: var(--c-fail-edge);
+  background: linear-gradient(180deg, rgba(251, 94, 109, 0.06), transparent 70%), var(--c-panel-2);
+}
+
+.stage.s-running {
+  border-color: rgba(167, 139, 250, 0.4);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.07), transparent 70%), var(--c-panel-2);
+}
+
+.stage.s-skipped,
+.stage.s-pending {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.stage.is-muted {
+  opacity: 0.3;
+}
+
+.stage-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.stage-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-xs);
+  background: var(--c-panel-4);
+  color: var(--c-ink-2);
+  flex-shrink: 0;
+}
+
+.stage.s-success .stage-icon {
+  background: var(--c-pass-wash);
+  color: var(--c-pass-ink);
+}
+
+.stage.s-failed .stage-icon {
+  background: var(--c-fail-wash);
+  color: var(--c-fail-ink);
+}
+
+.stage.s-running .stage-icon {
+  background: var(--c-run-wash);
+  color: #c7b6ff;
+}
+
+.stage-name {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--c-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.stage-duration {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--c-ink-3);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.stage-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  min-height: 17px;
+}
+
+.stage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: var(--r-xs);
+  background: var(--c-void);
+  border: 1px solid var(--c-line);
+  font-size: var(--t-micro);
+  color: var(--c-ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stage-chip.is-fail {
+  background: var(--c-fail-wash);
+  border-color: var(--c-fail-edge);
+  color: var(--c-fail-ink);
+}
+
+.stage-chip.is-region {
+  background: var(--c-info-wash);
+  border-color: var(--c-info-edge);
+  color: var(--c-info-ink);
+  font-family: var(--font-mono);
+}
+
+.stage-chip.is-approval {
+  background: var(--c-brand-wash);
+  border-color: var(--c-brand-edge);
+  color: var(--c-brand-ink);
+}
+
+/* Running stages get a thin indeterminate bar at the bottom. */
+.stage-progress {
+  position: absolute;
+  inset: auto var(--s-3) 6px;
+  height: 2px;
+  border-radius: var(--r-pill);
+  background: rgba(167, 139, 250, 0.2);
+  overflow: hidden;
+}
+
+.stage-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: var(--r-pill);
+  background: var(--c-run);
+  animation: stage-sweep 1.5s var(--m-ease) infinite;
+}
+
+@keyframes stage-sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+/* Marker on the stage the diagnosis points at. */
+.stage-blame {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--c-fail);
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--c-panel);
+  animation: blame-pop var(--m-slow) var(--m-spring) both;
+}
+
+@keyframes blame-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   Diagnosis panel
+   ============================================================ */
+
+.dx {
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--c-panel);
+}
+
+.dx.is-fail {
+  border-color: var(--c-fail-edge);
+}
+
+.dx.is-clear {
+  border-color: var(--c-pass-edge);
+}
+
+.dx-hd {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  background: linear-gradient(180deg, rgba(251, 94, 109, 0.08), transparent);
+}
+
+.dx.is-clear .dx-hd {
+  background: linear-gradient(180deg, rgba(47, 212, 143, 0.08), transparent);
+}
+
+.dx-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-md);
+  background: var(--c-fail-wash);
+  border: 1px solid var(--c-fail-edge);
+  color: var(--c-fail-ink);
+  flex-shrink: 0;
+}
+
+.dx.is-clear .dx-mark {
+  background: var(--c-pass-wash);
+  border-color: var(--c-pass-edge);
+  color: var(--c-pass-ink);
+}
+
+.dx-hd-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.dx-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.dx-title h2 {
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.dx-summary {
+  margin-top: var(--s-2);
+  font-size: var(--t-sm);
+  color: var(--c-ink-2);
+  line-height: 1.6;
+  max-width: 82ch;
+}
+
+/* Confidence readout with a small arc gauge. */
+.dx-confidence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.dx-gauge {
+  position: relative;
+  width: 58px;
+  height: 58px;
+}
+
+.dx-gauge svg {
+  transform: rotate(-90deg);
+}
+
+.dx-gauge circle {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.dx-gauge .track {
+  stroke: var(--c-panel-4);
+}
+
+.dx-gauge .value {
+  stroke: var(--c-fail);
+  transition: stroke-dashoffset var(--m-slow) var(--m-ease);
+}
+
+.dx.is-clear .dx-gauge .value {
+  stroke: var(--c-pass);
+}
+
+.dx-gauge b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.dx-confidence small {
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-4);
+}
+
+/* ---- Verdict banner: the one-line answer ---------------- */
+
+.dx-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--c-line-soft);
+  border-bottom: 1px solid var(--c-line-soft);
+  background: var(--c-void);
+  font-size: var(--t-sm);
+  font-weight: 550;
+}
+
+.dx-verdict.is-clear {
+  color: var(--c-pass-ink);
+}
+
+.dx-verdict.is-blocked {
+  color: var(--c-fail-ink);
+}
+
+.dx-verdict-action {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+/* ---- Signals ------------------------------------------- */
+
+.dx-body {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 1px;
+  background: var(--c-line-soft);
+}
+
+@media (max-width: 1020px) {
+  .dx-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dx-col {
+  background: var(--c-panel);
+  padding: var(--s-5);
+}
+
+.dx-col h3 {
+  font-size: var(--t-xs);
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-ink-4);
+  margin-bottom: var(--s-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.signal {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--c-line-soft);
+}
+
+.signal:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.signal-src {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-xs);
+  background: var(--c-panel-3);
+  color: var(--c-ink-3);
+  flex-shrink: 0;
+}
+
+.signal-src.src-log {
+  background: var(--c-info-wash);
+  color: var(--c-info-ink);
+}
+
+.signal-src.src-history {
+  background: var(--c-brand-wash);
+  color: var(--c-brand-ink);
+}
+
+.signal-src.src-topology {
+  background: var(--c-warn-wash);
+  color: var(--c-warn-ink);
+}
+
+.signal-src.src-diff {
+  background: var(--c-pass-wash);
+  color: var(--c-pass-ink);
+}
+
+.signal-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.signal-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  font-size: var(--t-sm);
+  font-weight: 550;
+  color: var(--c-ink);
+}
+
+.signal-weight {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+  flex-shrink: 0;
+}
+
+.signal-detail {
+  margin-top: 3px;
+  font-size: var(--t-xs);
+  color: var(--c-ink-3);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.signal-detail code,
+.signal.is-quote .signal-detail {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--c-ink-2);
+}
+
+/* Counter-evidence is shown deliberately, so the verdict is
+   checkable rather than merely assertive. */
+.signal.is-against .signal-label {
+  color: var(--c-ink-2);
+}
+
+.signal.is-against .signal-src {
+  background: var(--c-panel-3);
+  color: var(--c-ink-4);
+}
+
+/* ============================================================
+   Region matrix
+   ============================================================ */
+
+.rm {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--c-line-soft);
+}
+
+.rm-tier {
+  background: var(--c-panel);
+}
+
+.rm-tier-hd {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-5);
+  background: rgba(255, 255, 255, 0.014);
+  font-size: var(--t-micro);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-ink-4);
+}
+
+.rm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+  gap: 1px;
+  background: var(--c-line-soft);
+}
+
+.rm-cell {
+  background: var(--c-panel);
+  padding: var(--s-4) var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  position: relative;
+  transition: background var(--m-fast) var(--m-ease);
+}
+
+.rm-cell:hover {
+  background: var(--c-panel-2);
+}
+
+.rm-cell.is-degraded {
+  background: linear-gradient(180deg, rgba(240, 180, 41, 0.07), transparent 60%), var(--c-panel);
+}
+
+.rm-cell.is-down {
+  background: linear-gradient(180deg, rgba(251, 94, 109, 0.09), transparent 60%), var(--c-panel);
+}
+
+.rm-cell-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.rm-region {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.rm-region-label {
+  font-size: var(--t-xs);
+  color: var(--c-ink-4);
+}
+
+.rm-version {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-xs);
+  color: var(--c-ink-3);
+}
+
+.rm-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--c-line-soft);
+}
+
+.rm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rm-stat b {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink);
+}
+
+.rm-stat b.is-bad {
+  color: var(--c-fail-ink);
+}
+
+.rm-stat span {
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Log viewer
+   ============================================================ */
+
+.logv {
+  display: flex;
+  flex-direction: column;
+  background: var(--c-void);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.logv-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--c-line);
+  background: var(--c-panel);
+  font-size: var(--t-xs);
+}
+
+.logv-bar strong {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--c-ink-2);
+}
+
+.logv-body {
+  margin: 0;
+  padding: var(--s-3) 0;
+  max-height: 460px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.7;
+  counter-reset: logline;
+}
+
+.logv-line {
+  display: flex;
+  gap: var(--s-3);
+  padding: 0 var(--s-4) 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--c-ink-2);
+}
+
+.logv-line::before {
+  content: counter(logline);
+  counter-increment: logline;
+  flex: 0 0 44px;
+  text-align: right;
+  color: var(--c-ink-4);
+  opacity: 0.6;
+  user-select: none;
+}
+
+.logv-line.is-error {
+  background: rgba(251, 94, 109, 0.09);
+  color: var(--c-fail-ink);
+  box-shadow: inset 2px 0 0 var(--c-fail);
+}
+
+.logv-line.is-warn {
+  color: var(--c-warn-ink);
+}
+
+.logv-line.is-group {
+  color: var(--c-ink-4);
+}
+
+.logv-line.is-pass {
+  color: var(--c-pass-ink);
+}
+
+/* The line the diagnosis quoted as evidence. */
+.logv-line.is-evidence {
+  background: rgba(240, 180, 41, 0.1);
+  box-shadow: inset 2px 0 0 var(--c-warn);
+}
+
+.logv-empty {
+  padding: var(--s-6);
+  text-align: center;
+  color: var(--c-ink-4);
+  font-size: var(--t-sm);
+}
+
+/* ============================================================
+   Run list
+   ============================================================ */
+
+.runs-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+
+.runs-filters .select {
+  width: auto;
+  min-width: 132px;
+  height: 30px;
+  font-size: var(--t-xs);
+}
+
+.run-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 2.1fr) minmax(0, 1.15fr) minmax(0, 1.35fr) auto;
+  gap: var(--s-4);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+  transition: background var(--m-fast) var(--m-ease);
+}
+
+.run-row:last-child {
+  border-bottom: 0;
+}
+
+.run-row:hover {
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.run-row.is-failed {
+  box-shadow: inset 2px 0 0 var(--c-fail);
+}
+
+.run-row.is-running {
+  box-shadow: inset 2px 0 0 var(--c-run);
+}
+
+.run-title {
+  min-width: 0;
+}
+
+.run-title strong {
+  display: block;
+  font-size: var(--t-sm);
+  font-weight: 550;
+  color: var(--c-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-title-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: 3px;
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+  flex-wrap: wrap;
+}
+
+.run-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--c-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.run-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.run-timing {
+  text-align: right;
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.run-timing b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--c-ink-2);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .run-row {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+  .run-row > .run-branch-cell,
+  .run-row > .run-verdict {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Blast radius
+   ============================================================ */
+
+.br-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: var(--s-5);
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .br-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.br-picker {
+  position: sticky;
+  top: var(--s-4);
+}
+
+.br-file-list {
+  max-height: 420px;
+  overflow: auto;
+  border-top: 1px solid var(--c-line-soft);
+}
+
+.br-file {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 7px var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+  font-size: var(--t-xs);
+  text-align: left;
+  transition: background var(--m-fast) var(--m-ease);
+}
+
+.br-file:hover {
+  background: var(--c-panel-2);
+}
+
+.br-file.is-picked {
+  background: var(--c-brand-wash);
+  color: var(--c-brand-ink);
+}
+
+.br-file-path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.br-check {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--c-line-bright);
+  flex-shrink: 0;
+  color: transparent;
+}
+
+.br-file.is-picked .br-check {
+  background: var(--c-brand);
+  border-color: var(--c-brand);
+  color: #fff;
+}
+
+/* ---- Risk gauge ---------------------------------------- */
+
+.br-risk {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-5);
+}
+
+.br-risk-score {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--r-lg);
+  font-size: 1.8rem;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  border: 1px solid;
+}
+
+.br-risk-score.band-low {
+  background: var(--c-pass-wash);
+  border-color: var(--c-pass-edge);
+  color: var(--c-pass-ink);
+}
+
+.br-risk-score.band-medium {
+  background: var(--c-warn-wash);
+  border-color: var(--c-warn-edge);
+  color: var(--c-warn-ink);
+}
+
+.br-risk-score.band-high,
+.br-risk-score.band-critical {
+  background: var(--c-fail-wash);
+  border-color: var(--c-fail-edge);
+  color: var(--c-fail-ink);
+}
+
+.br-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: var(--t-sm);
+  color: var(--c-ink-2);
+}
+
+.br-reasons li {
+  display: flex;
+  gap: var(--s-2);
+  line-height: 1.5;
+}
+
+.br-reasons li::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-ink-4);
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
+/* ---- Layer ladder -------------------------------------- */
+
+.br-layers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.br-layer {
+  display: grid;
+  grid-template-columns: 96px 1fr 52px;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--t-xs);
+}
+
+.br-layer-label {
+  color: var(--c-ink-3);
+  white-space: nowrap;
+}
+
+.br-layer-bar {
+  height: 20px;
+  border-radius: var(--r-xs);
+  background: var(--c-panel-3);
+  overflow: hidden;
+}
+
+.br-layer-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-xs);
+  background: linear-gradient(90deg, var(--c-brand), var(--c-brand-bright));
+  transition: width var(--m-slow) var(--m-ease);
+}
+
+.br-layer.d0 .br-layer-bar > span {
+  background: linear-gradient(90deg, var(--c-fail), #ff8a94);
+}
+
+.br-layer-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-2);
+  font-family: var(--font-mono);
+}
+
+/* ---- Service cards ------------------------------------- */
+
+.br-services {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: var(--s-3);
+}
+
+.br-service {
+  padding: var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: var(--c-panel-2);
+}
+
+.br-service-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.br-service-meta {
+  margin-top: var(--s-2);
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+}
+
+.br-service-endpoints {
+  margin-top: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.br-service-endpoints code {
+  font-size: var(--t-micro);
+  color: var(--c-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Narrow screens
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .dl-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-4);
+  }
+
+  /* The desktop flex basis would otherwise grow the title block to
+     fill the column and push the buttons to the bottom of the page. */
+  .dl-head-main {
+    flex: 0 0 auto;
+  }
+
+  .dl-head-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dl-head-actions > .btn {
+    width: 100%;
+  }
+
+  .dl-head h1 {
+    font-size: 1.6rem;
+  }
+
+  /* A run row has five columns on desktop; at this width only the
+     status, the title and the timing still earn their place. */
+  .run-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: var(--s-3);
+  }
+
+  .run-row > .run-timing {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .runs-filters .select {
+    flex: 1 1 128px;
+  }
+
+  .rm-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dx-hd {
+    flex-wrap: wrap;
+  }
+
+  .dx-confidence {
+    order: -1;
+  }
+
+  .br-risk {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

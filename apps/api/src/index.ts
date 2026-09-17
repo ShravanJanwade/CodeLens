@@ -18,6 +18,7 @@ import { DEFAULT_LIMITS, type DomainEventType } from '@codelens/shared';
 import { listScenarios, postmortem, resolveApprovedIncident, runScenario } from './workflows/incident-replay';
 import { snapshot, selectSources, selectedCodeSources, validateCitations } from './services/snapshots';
 import { releaseRoutes } from './rehearsal/routes';
+import { pipelineRoutes } from './pipeline/routes';
 import { startWorker } from './rehearsal/runner';
 import { resolveIdentity, checkOrigin } from './services/identity';
 import { authRoutes } from './routes/auth';
@@ -308,6 +309,7 @@ app.use('/api/v1/*', async (c, next) => {
 app.route('/api/v1', authRoutes);
 app.route('/api/v1', repositoryRoutes);
 app.route('/api/v1', deliveryRoutes);
+app.route('/api/v1', pipelineRoutes);
 
 app.get('/health', async (c) =>
   c.json({ status: 'ok', services: { api: true, database: true, ai: provider.name }, time: now() }),

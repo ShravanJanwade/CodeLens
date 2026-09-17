@@ -92,13 +92,7 @@ export interface CodeFinding {
 
 export type FindingSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 export type FindingCategory =
-  | 'code-smell'
-  | 'bug-risk'
-  | 'complexity'
-  | 'duplication'
-  | 'security'
-  | 'performance'
-  | 'maintainability';
+  'code-smell' | 'bug-risk' | 'complexity' | 'duplication' | 'security' | 'performance' | 'maintainability';
 
 // ---- Service Registry ----
 
@@ -198,12 +192,7 @@ export interface Incident {
 
 export type IncidentSeverity = 'critical' | 'high' | 'medium' | 'low';
 export type IncidentStatus =
-  | 'open'
-  | 'investigating'
-  | 'mitigating'
-  | 'awaiting_approval'
-  | 'resolved'
-  | 'closed';
+  'open' | 'investigating' | 'mitigating' | 'awaiting_approval' | 'resolved' | 'closed';
 
 export interface Evidence {
   id: string;
@@ -294,14 +283,7 @@ export interface AgentStep {
 }
 
 export type AgentType =
-  | 'orchestrator'
-  | 'metrics'
-  | 'logs'
-  | 'traces'
-  | 'deployment'
-  | 'dependency'
-  | 'root-cause'
-  | 'remediation';
+  'orchestrator' | 'metrics' | 'logs' | 'traces' | 'deployment' | 'dependency' | 'root-cause' | 'remediation';
 
 export interface ToolCall {
   id: string;
@@ -353,12 +335,7 @@ export interface RemediationPlan {
 }
 
 export type RemediationAction =
-  | 'rollback'
-  | 'restart'
-  | 'scale'
-  | 'disable_feature'
-  | 'update_config'
-  | 'manual';
+  'rollback' | 'restart' | 'scale' | 'disable_feature' | 'update_config' | 'manual';
 
 export type RemediationStatus =
   | 'proposed'
@@ -465,10 +442,10 @@ export interface ActivityEntry {
 // ---- Billing Safety / Limits ----
 
 export interface SystemLimits {
-  maxRepositorySize: number;       // 25 MB
-  maxFilesPerAnalysis: number;     // 500
-  maxAgentSteps: number;           // 25
-  maxToolCallsPerRun: number;      // 30
+  maxRepositorySize: number; // 25 MB
+  maxFilesPerAnalysis: number; // 500
+  maxAgentSteps: number; // 25
+  maxToolCallsPerRun: number; // 30
   maxTelemetryEventsPerMinute: number; // 500
   maxApiRequestsPerMinute: number; // 60
 }
@@ -481,3 +458,9 @@ export const DEFAULT_LIMITS: SystemLimits = {
   maxTelemetryEventsPerMinute: 500,
   maxApiRequestsPerMinute: 60,
 };
+
+// ---- Pipeline failure diagnosis ----
+
+export * from './diagnosis';
+
+export * from './blast-radius';

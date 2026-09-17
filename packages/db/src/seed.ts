@@ -17,7 +17,11 @@ async function seed() {
   console.log('🌱 Seeding database with demo data...');
   const db = getDb();
 
-  const [existingDemo] = await db.select().from(schema.users).where(eq(schema.users.email, 'demo@codelens.dev')).limit(1);
+  const [existingDemo] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, 'demo@codelens.dev'))
+    .limit(1);
   if (existingDemo) {
     console.log('ℹ️  Demo seed already exists; skipping.');
     return;
@@ -55,12 +59,48 @@ async function seed() {
 
   // ---- Services ----
   const serviceData = [
-    { name: 'api-gateway', displayName: 'API Gateway', description: 'Edge routing and authentication', deps: ['user-service', 'order-service'], status: 'healthy' as const },
-    { name: 'user-service', displayName: 'User Service', description: 'User authentication and profiles', deps: [], status: 'healthy' as const },
-    { name: 'order-service', displayName: 'Order Service', description: 'Order processing and management', deps: ['payment-service', 'inventory-service'], status: 'healthy' as const },
-    { name: 'payment-service', displayName: 'Payment Service', description: 'Payment processing and billing', deps: ['notification-service'], status: 'degraded' as const },
-    { name: 'inventory-service', displayName: 'Inventory Service', description: 'Stock management and tracking', deps: [], status: 'healthy' as const },
-    { name: 'notification-service', displayName: 'Notification Service', description: 'Email, SMS, and push notifications', deps: [], status: 'healthy' as const },
+    {
+      name: 'api-gateway',
+      displayName: 'API Gateway',
+      description: 'Edge routing and authentication',
+      deps: ['user-service', 'order-service'],
+      status: 'healthy' as const,
+    },
+    {
+      name: 'user-service',
+      displayName: 'User Service',
+      description: 'User authentication and profiles',
+      deps: [],
+      status: 'healthy' as const,
+    },
+    {
+      name: 'order-service',
+      displayName: 'Order Service',
+      description: 'Order processing and management',
+      deps: ['payment-service', 'inventory-service'],
+      status: 'healthy' as const,
+    },
+    {
+      name: 'payment-service',
+      displayName: 'Payment Service',
+      description: 'Payment processing and billing',
+      deps: ['notification-service'],
+      status: 'degraded' as const,
+    },
+    {
+      name: 'inventory-service',
+      displayName: 'Inventory Service',
+      description: 'Stock management and tracking',
+      deps: [],
+      status: 'healthy' as const,
+    },
+    {
+      name: 'notification-service',
+      displayName: 'Notification Service',
+      description: 'Email, SMS, and push notifications',
+      deps: [],
+      status: 'healthy' as const,
+    },
   ];
 
   const serviceIds: Record<string, string> = {};
@@ -89,7 +129,7 @@ async function seed() {
 
   // ---- Deployments ----
   const paymentServiceId = serviceIds['payment-service'];
-  
+
   await db.insert(schema.deployments).values({
     id: uuid(),
     serviceId: paymentServiceId,
@@ -118,7 +158,8 @@ async function seed() {
   await db.insert(schema.incidents).values({
     id: incidentId,
     title: 'Payment Service Degraded — High Error Rate',
-    description: 'Payment service error rate exceeded 15% threshold. Database connection pool utilization at 96%. Correlated with deployment v1.8.3.',
+    description:
+      'Payment service error rate exceeded 15% threshold. Database connection pool utilization at 96%. Correlated with deployment v1.8.3.',
     severity: 'high',
     status: 'investigating',
     serviceId: paymentServiceId,
@@ -129,14 +170,54 @@ async function seed() {
 
   // ---- Incident Timeline ----
   const timelineEvents = [
-    { type: 'deployment', title: 'Deployment v1.8.3', description: 'payment-service deployed version 1.8.3', offsetMs: -300000 },
-    { type: 'alert_triggered', title: 'Latency spike detected', description: 'P99 latency increased from 180ms to 4200ms', offsetMs: -250000 },
-    { type: 'alert_triggered', title: 'Error rate threshold exceeded', description: 'Error rate: 18.2% (threshold: 5%)', offsetMs: -240000 },
-    { type: 'incident_created', title: 'Incident INC-1042 created', description: 'Auto-created from correlated alerts', offsetMs: -238000 },
-    { type: 'agent_started', title: 'AI Investigation started', description: 'Orchestrator agent initiated', offsetMs: -236000 },
-    { type: 'tool_called', title: 'Queried payment-service metrics', description: 'Retrieved error rate, latency, and throughput', offsetMs: -234000 },
-    { type: 'tool_called', title: 'Queried error logs', description: 'Found 847 error entries in last 5 minutes', offsetMs: -232000 },
-    { type: 'tool_called', title: 'Retrieved recent deployments', description: 'Found deployment v1.8.3 at T-5min', offsetMs: -230000 },
+    {
+      type: 'deployment',
+      title: 'Deployment v1.8.3',
+      description: 'payment-service deployed version 1.8.3',
+      offsetMs: -300000,
+    },
+    {
+      type: 'alert_triggered',
+      title: 'Latency spike detected',
+      description: 'P99 latency increased from 180ms to 4200ms',
+      offsetMs: -250000,
+    },
+    {
+      type: 'alert_triggered',
+      title: 'Error rate threshold exceeded',
+      description: 'Error rate: 18.2% (threshold: 5%)',
+      offsetMs: -240000,
+    },
+    {
+      type: 'incident_created',
+      title: 'Incident INC-1042 created',
+      description: 'Auto-created from correlated alerts',
+      offsetMs: -238000,
+    },
+    {
+      type: 'agent_started',
+      title: 'AI Investigation started',
+      description: 'Orchestrator agent initiated',
+      offsetMs: -236000,
+    },
+    {
+      type: 'tool_called',
+      title: 'Queried payment-service metrics',
+      description: 'Retrieved error rate, latency, and throughput',
+      offsetMs: -234000,
+    },
+    {
+      type: 'tool_called',
+      title: 'Queried error logs',
+      description: 'Found 847 error entries in last 5 minutes',
+      offsetMs: -232000,
+    },
+    {
+      type: 'tool_called',
+      title: 'Retrieved recent deployments',
+      description: 'Found deployment v1.8.3 at T-5min',
+      offsetMs: -230000,
+    },
   ];
 
   for (const event of timelineEvents) {
@@ -163,16 +244,34 @@ async function seed() {
   });
 
   // Update incident with agent run
-  await db.update(schema.incidents)
-    .set({ agentRunId })
-    .where(eq(schema.incidents.id, incidentId));
+  await db.update(schema.incidents).set({ agentRunId }).where(eq(schema.incidents.id, incidentId));
 
   // ---- Hypotheses ----
   const hypothesesData = [
-    { title: 'Database connection pool exhaustion', description: 'v1.8.3 may have introduced a connection leak causing pool exhaustion', status: 'investigating' as const, confidence: 0.87 },
-    { title: 'Downstream API timeout', description: 'External payment gateway may be experiencing delays', status: 'eliminated' as const, confidence: 0.12 },
-    { title: 'Memory pressure', description: 'Service may be under memory pressure causing GC pauses', status: 'eliminated' as const, confidence: 0.08 },
-    { title: 'Network degradation', description: 'Network issues between services', status: 'eliminated' as const, confidence: 0.05 },
+    {
+      title: 'Database connection pool exhaustion',
+      description: 'v1.8.3 may have introduced a connection leak causing pool exhaustion',
+      status: 'investigating' as const,
+      confidence: 0.87,
+    },
+    {
+      title: 'Downstream API timeout',
+      description: 'External payment gateway may be experiencing delays',
+      status: 'eliminated' as const,
+      confidence: 0.12,
+    },
+    {
+      title: 'Memory pressure',
+      description: 'Service may be under memory pressure causing GC pauses',
+      status: 'eliminated' as const,
+      confidence: 0.08,
+    },
+    {
+      title: 'Network degradation',
+      description: 'Network issues between services',
+      status: 'eliminated' as const,
+      confidence: 0.05,
+    },
   ];
 
   for (const h of hypothesesData) {
