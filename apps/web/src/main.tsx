@@ -15,6 +15,7 @@ import './styles/primitives.css';
 import './styles/shell.css';
 import './styles/delivery.css';
 import './styles/landing.css';
+import './styles/surfaces.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

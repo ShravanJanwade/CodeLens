@@ -1,0 +1,358 @@
+/* ============================================================
+   CodeLens — Auth and workspace surfaces
+   ------------------------------------------------------------
+   These layouts previously lived in marketing.css, which was
+   replaced when the landing page was rebuilt. Rewritten here on the
+   design tokens so the sign-in page and the repository workspace
+   match the rest of the product instead of carrying the old palette.
+   ============================================================ */
+
+/* ============================================================
+   Sign in / sign up
+   ============================================================ */
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: var(--c-canvas);
+}
+
+@media (max-width: 900px) {
+  .auth-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On a phone the form is the job; the pitch can wait. */
+  .auth-story {
+    display: none;
+  }
+}
+
+.auth-story {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: clamp(32px, 5vw, 56px) clamp(28px, 5vw, 64px);
+  border-right: 1px solid var(--c-line);
+  background:
+    radial-gradient(620px 420px at 18% 45%, rgba(109, 94, 252, 0.16), transparent 70%), var(--c-void);
+}
+
+.auth-story h1 {
+  margin: var(--s-6) 0;
+  font-size: clamp(2rem, 3.4vw, 2.85rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.auth-story em {
+  font-style: normal;
+  background: linear-gradient(100deg, var(--c-brand-bright) 10%, #7fd7ff 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-story p {
+  max-width: 44ch;
+  font-size: var(--t-body);
+  line-height: 1.7;
+  color: var(--c-ink-2);
+}
+
+.auth-story > .muted-link,
+.auth-story > a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-xs);
+  color: var(--c-ink-3);
+  transition: color var(--m-fast) var(--m-ease);
+}
+
+.auth-story > .muted-link:hover,
+.auth-story > a:hover {
+  color: var(--c-ink);
+}
+
+.auth-benefits {
+  display: grid;
+  gap: var(--s-4);
+  margin-top: var(--s-8);
+}
+
+.auth-benefits > div {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--t-sm);
+  color: var(--c-ink-2);
+}
+
+.auth-benefits svg {
+  flex-shrink: 0;
+  color: var(--c-brand-ink);
+}
+
+.auth-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 6vw, 56px) var(--s-6);
+}
+
+.auth-form-inner {
+  width: 100%;
+  max-width: 396px;
+}
+
+.auth-form-inner h1 {
+  margin: var(--s-4) 0 var(--s-2);
+  font-size: 1.75rem;
+  letter-spacing: -0.03em;
+}
+
+.auth-form-inner > p {
+  font-size: var(--t-sm);
+  line-height: 1.65;
+  color: var(--c-ink-3);
+}
+
+.auth-form-inner .field-label {
+  display: block;
+  margin: var(--s-4) 0 6px;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--c-ink-2);
+}
+
+.auth-form-inner .field-label small {
+  font-weight: 400;
+  color: var(--c-ink-4);
+}
+
+.auth-form-inner > .muted-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: var(--t-xs);
+  color: var(--c-ink-3);
+}
+
+.auth-divider {
+  position: relative;
+  margin: var(--s-6) 0;
+  text-align: center;
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-ink-4);
+}
+
+.auth-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--c-line);
+}
+
+.auth-divider span {
+  position: relative;
+  padding: 0 var(--s-3);
+  background: var(--c-canvas);
+}
+
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+  height: 42px;
+  margin-top: var(--s-5);
+}
+
+.auth-switch {
+  margin: var(--s-6) 0;
+  text-align: center;
+  font-size: var(--t-sm);
+  color: var(--c-ink-3);
+}
+
+.auth-hint {
+  margin-top: var(--s-2);
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+}
+
+/* ============================================================
+   Repository workspace bits
+   ============================================================ */
+
+.feature-symbol {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: var(--s-5);
+  border-radius: var(--r-md);
+  background: var(--c-brand-wash);
+  border: 1px solid var(--c-brand-edge);
+  color: var(--c-brand-ink);
+}
+
+.investigation-cards {
+  align-items: stretch;
+}
+
+.investigation-cards > section {
+  padding: var(--s-8);
+}
+
+.investigation-cards h2 {
+  margin: var(--s-4) 0;
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.investigation-steps {
+  display: grid;
+  gap: var(--s-4);
+  margin: var(--s-6) 0;
+  padding-left: var(--s-5);
+  list-style: decimal;
+  font-size: var(--t-sm);
+  line-height: 1.7;
+  color: var(--c-ink-2);
+}
+
+.investigation-steps li::marker {
+  color: var(--c-brand-ink);
+}
+
+.delivery-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--c-line-soft);
+  font-size: var(--t-xs);
+}
+
+.delivery-step:last-child {
+  border-bottom: 0;
+}
+
+.github-picker {
+  margin-top: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: var(--c-panel-2);
+}
+
+.github-picker .section-title-row {
+  margin: 0 0 var(--s-3);
+  font-size: var(--t-xs);
+}
+
+.github-repo-options {
+  max-height: 188px;
+  overflow: auto;
+}
+
+.branch-field {
+  margin: 0;
+  min-width: 200px;
+}
+
+.change-file {
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--c-line-soft);
+}
+
+.change-file summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.change-file summary > span {
+  font-size: var(--t-micro);
+  color: var(--c-ink-3);
+  white-space: nowrap;
+}
+
+/* A textarea holding source: monospace and a generous minimum height,
+   because editing a workflow file in six visible lines is miserable. */
+.source-editor {
+  min-height: 360px;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.7;
+  tab-size: 2;
+}
+
+.webhook-url {
+  display: block;
+  margin: var(--s-5) 0;
+  padding: var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  background: var(--c-void);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--c-ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* GitHub OAuth button on the sign-in page. */
+.oauth-button {
+  width: 100%;
+  justify-content: center;
+  height: 42px;
+  margin-top: var(--s-6);
+}
+
+.oauth-button.unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Rows in the "connect a repository" picker. */
+.github-repo-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  width: 100%;
+  padding: var(--s-2) var(--s-2);
+  border-radius: var(--r-xs);
+  font-size: var(--t-xs);
+  text-align: left;
+  color: var(--c-ink-2);
+  transition:
+    background var(--m-fast) var(--m-ease),
+    color var(--m-fast) var(--m-ease);
+}
+
+.github-repo-option:hover,
+.github-repo-option.selected {
+  background: var(--c-brand-wash);
+  color: var(--c-brand-ink);
+}
+
+.github-repo-option small {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--t-micro);
+  color: var(--c-ink-4);
+}
