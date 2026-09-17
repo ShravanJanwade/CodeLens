@@ -13,7 +13,7 @@ and you lose the room. Leading with the ablation wins it.
 ## Bullets, ready to use
 
 > **CodeLens — CI/CD root-cause analysis platform** · TypeScript, React 19,
-> Hono, SQLite/Drizzle · [live demo](https://YOUR-RENDER-URL.onrender.com/demo)
+> Hono, SQLite/Drizzle · [live demo](https://codelens-96py.onrender.com/demo)
 >
 > - Built a deterministic failure classifier that identifies the root cause of a
 >   red CI/CD run from stage logs, cross-branch test history and multi-region

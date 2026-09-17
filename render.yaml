@@ -37,7 +37,15 @@ services:
         value: /data/codelens.db
 
       # Must exactly match the public origin: no trailing slash, no
-      # path. Set this to the service URL Render assigns you.
+      # path. check-config.mjs refuses to boot otherwise, because a
+      # mismatch breaks cookie auth and the OAuth callback in ways that
+      # are painful to debug from a 500.
+      #
+      # For the existing deployment this is:
+      #   https://codelens-96py.onrender.com
+      #
+      # Left as sync:false so a fork or a second environment has to set
+      # its own rather than inheriting this one.
       - key: APP_ORIGIN
         sync: false
 

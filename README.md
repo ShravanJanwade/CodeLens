@@ -5,7 +5,7 @@ reads the stage logs, the run history and the deploy topology, and tells you
 *why* — which region, which branch, which commit, which test — and whether your
 change is even to blame.
 
-> **[Open the live demo →](https://YOUR-RENDER-URL.onrender.com/demo)**
+> **[Open the live demo →](https://codelens-96py.onrender.com/demo)**
 > No sign-in. Drops straight into a seeded five-service monorepo with 41 real
 > pipeline runs across three production regions.
 
