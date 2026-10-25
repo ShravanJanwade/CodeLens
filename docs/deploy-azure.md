@@ -60,11 +60,19 @@ Actions signs in as, and a monthly budget that emails you. The last lines print
 the address CodeLens will have, of the form
 `https://codelens.<random-name>.<region>.azurecontainerapps.io`.
 
+Northeastern's Azure tenant refuses a resource group without three tags, so the
+script puts them on everything it creates: `Owner` (your sign-in email),
+`Cost Center` (`Azure for Students`, since the rule only checks that the tag
+exists) and `IaC managed` (this repository). To use other values, prefix the
+command, for example `TAG_COST_CENTER=12345 bash CodeLens/deploy/azure/setup.sh`.
+If a policy asks for a tag the script doesn't set, add it with
+`EXTRA_TAGS='Name=value'`, separating several with `;`.
+
 ## Step 3 — Repository variables
 
 Skip this if the script said it set them. Otherwise open
 **Settings → Secrets and variables → Actions → Variables** on the repository and
-add the five values the script printed:
+add the six values the script printed:
 
 | Variable | Example |
 | --- | --- |
@@ -73,6 +81,7 @@ add the five values the script printed:
 | `AZURE_SUBSCRIPTION_ID` | `00000000-0000-0000-0000-000000000000` |
 | `AZURE_RESOURCE_GROUP` | `rg-portfolio` |
 | `AZURE_CONTAINERAPPS_ENVIRONMENT` | `cae-portfolio` |
+| `AZURE_TAGS` | `{"Owner":"you@northeastern.edu","Cost Center":"Azure for Students","IaC managed":"ShravanJanwade/CodeLens"}` |
 
 None of these are secrets. GitHub Actions signs in with OpenID Connect, so no
 Azure password or key is stored in GitHub.
@@ -145,6 +154,11 @@ delete the Render service and its disk so the starter plan stops billing.
 - To remove everything for both projects: `az group delete -n rg-portfolio`.
 
 ## Troubleshooting
+
+**`RequestDisallowedByPolicy` … "A tag named … is required".** A policy in your
+organization wants tags the script didn't set or different values. Set the
+values with `TAG_OWNER`, `TAG_COST_CENTER` or `TAG_IAC_MANAGED`, add missing tags
+with `EXTRA_TAGS='Name=value'`, and re-run.
 
 **`RequestDisallowedByAzure` during setup.** Azure for Students only allows a
 few regions. The script reads the allowed list and tries them in order; if it
