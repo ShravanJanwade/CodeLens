@@ -25,3 +25,46 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm verify:production
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      # The deployment is this image, so building and booting it is the only
+      # way to know a deploy will start after a green test run.
+      - run: docker build --tag codelens:ci .
+      - name: Boot it, stop it, and boot it again from the database snapshot
+        run: |
+          persist="$RUNNER_TEMP/persist"
+          mkdir -p "$persist" && chmod 777 "$persist"
+          jwt="$(openssl rand -hex 32)"
+          key="$(openssl rand -hex 32)"
+          boot() {
+            docker run --detach --name codelens-ci --publish 4000:4000 \
+              --env APP_ORIGIN=https://codelens.example.com \
+              --env JWT_SECRET="$jwt" --env TOKEN_ENCRYPTION_KEY="$key" \
+              --env PERSIST_DIR=/persist --volume "$persist:/persist" \
+              codelens:ci
+            for _ in $(seq 1 90); do
+              if curl --silent --fail http://127.0.0.1:4000/health > /dev/null; then return 0; fi
+              sleep 2
+            done
+            docker logs codelens-ci
+            return 1
+          }
+          boot
+          # The console and its static files come from the same process.
+          curl --silent --fail http://127.0.0.1:4000/ | grep -q '<div id="root">'
+          curl --silent --fail http://127.0.0.1:4000/robots.txt | grep -q 'Disallow: /'
+          # Stopping takes the final snapshot; the next boot restores it.
+          docker stop --time 60 codelens-ci
+          docker logs codelens-ci 2>&1 | grep '\[persist\] saved'
+          docker rm codelens-ci
+          test -s "$persist/codelens.db"
+          boot
+          docker logs codelens-ci 2>&1 | grep '\[persist\] restored'
+      - if: always()
+        run: docker logs codelens-ci || true
+      - if: always()
+        run: docker rm --force codelens-ci || true

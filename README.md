@@ -232,5 +232,6 @@ examples/
 
 - [Architecture, execution model and limitations](docs/release-platform.md)
 - [Deployment, OAuth and environment setup](docs/deploy-full-workspace.md)
+- [Hosting on Azure Container Apps for free-tier credit, scaling to zero](docs/deploy-azure.md)
 - [Tests and verification results](docs/verification.md)
 - [Résumé claims and where each number comes from](docs/resume-claims.md)
