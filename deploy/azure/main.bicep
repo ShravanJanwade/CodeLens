@@ -30,6 +30,9 @@ param storageName string = 'codelens-data'
 @minValue(300)
 param idleShutdownSeconds int = 1800
 
+@description('Tags the subscription\'s policies require, set by setup.sh as the AZURE_TAGS repository variable.')
+param tags object = {}
+
 @secure()
 param jwtSecret string
 
@@ -103,9 +106,7 @@ var settings = concat(
 resource app 'Microsoft.App/containerApps@2025-01-01' = {
   name: appName
   location: location
-  tags: {
-    project: 'codelens'
-  }
+  tags: union(tags, { project: 'codelens' })
   properties: {
     environmentId: environment.id
     configuration: {
