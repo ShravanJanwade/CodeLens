@@ -5,9 +5,10 @@ reads the stage logs, the run history and the deploy topology, and tells you
 *why* — which region, which branch, which commit, which test — and whether your
 change is even to blame.
 
-> **[Open the live demo →](https://codelens-96py.onrender.com/demo)**
+> **[Open the live demo →](https://codelens.icygrass-95174406.westus2.azurecontainerapps.io/demo)**
 > No sign-in. Drops straight into a seeded five-service monorepo with 41 real
-> pipeline runs across three production regions.
+> pipeline runs across three production regions. The demo sleeps when nobody is
+> using it, so the first load after a quiet spell takes about a minute.
 
 ---
 
