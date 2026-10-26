@@ -119,6 +119,21 @@ az containerapp logs show -n codelens -g rg-portfolio --follow --tail 200
 
 Lines starting with `[persist]` come from the snapshot wrapper.
 
+## GitHub sign-in
+
+GitHub only lets you create the OAuth app this needs in the browser. In Cloud
+Shell, after `gh auth login`, run:
+
+```bash
+bash CodeLens/deploy/azure/github-signin.sh
+```
+
+It prints the homepage and callback URLs to enter at
+<https://github.com/settings/applications/new> (callback
+`https://codelens.<your-domain>/api/v1/auth/github/callback`), asks for the client
+ID and secret in a hidden prompt, stores them as the `GH_OAUTH_*` secrets and
+redeploys. Re-run it to switch to a new OAuth app or secret.
+
 ## Optional settings
 
 Add these under **Settings → Secrets and variables → Actions**, then re-run the
@@ -126,7 +141,7 @@ workflow.
 
 | Name | Kind | Effect |
 | --- | --- | --- |
-| `GH_OAUTH_CLIENT_ID`, `GH_OAUTH_CLIENT_SECRET` | secrets | Enable GitHub sign-in. Set the OAuth app's callback to `https://codelens.<your-domain>/api/v1/auth/github/callback`. |
+| `GH_OAUTH_CLIENT_ID`, `GH_OAUTH_CLIENT_SECRET` | secrets | Enable GitHub sign-in; `github-signin.sh` sets both (see above). |
 | `GEMINI_API_KEY` | secret | Switches `AI_PROVIDER` from `demo` to `gemini`. |
 | `GEMINI_MODEL` | variable | Model for Gemini, default `gemini-2.5-flash`. |
 | `IDLE_SHUTDOWN_SECONDS` | variable | Idle time before scaling to zero, default `1800`, minimum `300`. |
