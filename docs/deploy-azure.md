@@ -162,9 +162,10 @@ with `EXTRA_TAGS='Name=value'`, and re-run.
 
 **`ExpressEnvironmentResourceNotSupported` ('Storage' resources are not supported
 on express environments).** Newer Azure CLI versions create a lighter "express"
-environment by default, and express can't mount the file share. The script asks
-for a standard one (`--environment-mode WorkloadProfiles`) and replaces an empty
-express environment it finds; pull the latest script and re-run.
+environment by default, and express can't mount the file share. The script
+creates the environment from `deploy/azure/environment.bicep`, which asks for a
+standard one (`environmentMode: WorkloadProfiles`), and replaces an empty express
+environment it finds; pull the latest script and re-run.
 
 **The environment fails in one region with an Azure-side error** (for example
 "There is not enough space on the disk"). The script removes the half-created

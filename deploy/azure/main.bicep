@@ -109,6 +109,8 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
   tags: union(tags, { project: 'codelens' })
   properties: {
     environmentId: environment.id
+    // The environment's only profile: per-second billing, scale to zero.
+    workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
       maxInactiveRevisions: 3
