@@ -149,11 +149,32 @@ workflow.
 
 GitHub secret names cannot start with `GITHUB_`, hence `GH_OAUTH_…`.
 
-## Step 6 — Retire the Render service
+## Step 6 — Turn the Render service into a redirect
 
-Once the Azure address works, update the links that point at
-`codelens-96py.onrender.com` (this README, your resume, your portfolio), then
-delete the Render service and its disk so the starter plan stops billing.
+Resumes already sent out link to `codelens-96py.onrender.com`, and only Render
+can answer that address. So rather than deleting the service, run
+`deploy/render-redirect` on it: a few lines of Node that send every request to
+the same path on Azure (`/demo` lands on the Azure `/demo`). On Render's free
+plan it costs nothing. In the Render dashboard, open the **codelens** service:
+
+1. **Disks**: delete `codelens-data`. Free instances can't have a disk, and it
+   only held the Render copy of the database.
+2. **Settings → Instance Type**: choose **Free**, which also ends the starter
+   plan's billing.
+3. **Settings → Build & Deploy**: set **Dockerfile Path** to
+   `./deploy/render-redirect/Dockerfile` and **Docker Build Context Directory**
+   to `./deploy/render-redirect`. Optionally set **Build Filters → Included
+   Paths** to `deploy/render-redirect/**`, so other pushes don't rebuild it.
+4. **Environment**: add `REDIRECT_TO` with the Azure origin,
+   `https://codelens.<your-domain>`, and nothing after it. The old variables can
+   stay or go.
+5. **Manual Deploy → Deploy latest commit**, then open
+   <https://codelens-96py.onrender.com/demo>; it should land on the Azure demo.
+
+Render's free plan sleeps after 15 idle minutes, so an old link can take up to a
+minute before it forwards. Browsers remember the redirect for a day. Don't run a
+Blueprint sync from `render.yaml` afterwards: it still describes the full app
+and would put it back.
 
 ## Keeping an eye on the credit
 
