@@ -806,14 +806,51 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
           timedOut.set(job.id, annotations);
       }
     }
-    const status: RunStatus = timedOut.size ? 'failed' : runStatus(run);
+    // A deploy a reviewer rejected at its environment gate also ends
+    // "failure", without running a step. That was a decision, not a fault.
+    const rejected = new Map<string, string>();
+    const neverStarted = jobs.filter(
+      (j) =>
+        j.conclusion === 'failure' &&
+        !(j.steps ?? []).some((s) => s.conclusion) &&
+        plan.get(j.id)?.environment,
+    );
+    if (neverStarted.length) {
+      const reviews = await access
+        .json<
+          { state: string; comment?: string; user?: { login: string }; environments?: { name: string }[] }[]
+        >(`${repoPath}/actions/runs/${run.id}/approvals`)
+        .catch(() => []);
+      for (const review of reviews.filter((r) => r.state === 'rejected'))
+        for (const env of review.environments ?? [])
+          rejected.set(
+            env.name,
+            `Deployment to ${env.name} was rejected${review.user ? ` by @${review.user.login}` : ''}${review.comment ? `: ${review.comment}` : '.'}`,
+          );
+    }
+    const isRejected = (job: GhJob) =>
+      neverStarted.includes(job) && rejected.has(plan.get(job.id)?.environment ?? '');
+    let status: RunStatus = timedOut.size ? 'failed' : runStatus(run);
+    if (
+      status === 'failed' &&
+      rejected.size &&
+      jobs.every((j) => j.conclusion !== 'failure' || isRejected(j))
+    )
+      status = 'cancelled';
 
     const stageRows: StageRow[] = [];
     for (const job of jobs) {
       const planned = plan.get(job.id)!;
-      const jobStatus: StageStatus = timedOut.has(job.id) ? 'failed' : stageStatus(job);
-      let log = stepSummary(job);
-      if (jobStatus === 'failed' || (jobStatus === 'cancelled' && status === 'failed')) {
+      const jobStatus: StageStatus = timedOut.has(job.id)
+        ? 'failed'
+        : isRejected(job)
+          ? 'cancelled'
+          : stageStatus(job);
+      let log = isRejected(job) ? rejected.get(planned.environment!)! : stepSummary(job);
+      if (
+        !isRejected(job) &&
+        (jobStatus === 'failed' || (jobStatus === 'cancelled' && status === 'failed'))
+      ) {
         const raw = access.authenticated
           ? await access.text(`${repoPath}/actions/jobs/${job.id}/logs`)
           : null;
