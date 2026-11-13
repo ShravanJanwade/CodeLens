@@ -20,7 +20,8 @@ import {
 import { API_BASE } from '../api';
 import { useAuth } from '../features/auth/Auth';
 import { useDeliveryOverview } from '../features/delivery/queries';
-import { DEMO_REPO } from '../features/delivery/types';
+import { DEMO_REPO, LIVE_REPO } from '../features/delivery/types';
+import { relative } from '../features/delivery/format';
 
 /**
  * Shell for the product surfaces.
@@ -68,6 +69,7 @@ export default function ProductLayout() {
 
   const repositoryId = params.repoId ?? DEMO_REPO;
   const isDemo = repositoryId === DEMO_REPO;
+  const isLive = repositoryId === LIVE_REPO;
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
@@ -121,7 +123,13 @@ export default function ProductLayout() {
           </span>
           <div>
             <strong>{overview.data?.repository.fullName ?? 'Loading…'}</strong>
-            <small>{isDemo ? 'Demo workspace' : (overview.data?.repository.defaultBranch ?? '')}</small>
+            <small>
+              {isDemo
+                ? 'Demo workspace'
+                : isLive
+                  ? 'Live example'
+                  : (overview.data?.repository.defaultBranch ?? '')}
+            </small>
           </div>
         </div>
 
@@ -241,6 +249,28 @@ export default function ProductLayout() {
             <Link className="link" to={auth.data?.data.user ? '/repositories' : '/login?mode=signup'}>
               {auth.data?.data.user ? 'Connect your own repository' : 'Sign in to use your own repository'}
             </Link>
+          </div>
+        )}
+
+        {isLive && (
+          <div className="demo-bar">
+            <span className="badge badge-pass">Live example</span>
+            <span>
+              <strong>{overview.data?.repository.fullName ?? 'northwind-commerce'}</strong> is a real
+              repository. Its GitHub Actions runs, logs and Azure deploys are read when you open this page,
+              and every root cause is computed by the classifier from them.{' '}
+              {overview.data?.sync?.running
+                ? 'Syncing new runs from GitHub…'
+                : overview.data?.sync?.finishedAt
+                  ? `Synced ${relative(overview.data.sync.finishedAt)}.`
+                  : ''}
+              {overview.data?.sync?.error ? ` The last sync failed: ${overview.data.sync.error}` : ''}
+            </span>
+            {overview.data?.sync?.url && (
+              <a className="link" href={overview.data.sync.url} target="_blank" rel="noreferrer">
+                Runs on GitHub
+              </a>
+            )}
           </div>
         )}
 

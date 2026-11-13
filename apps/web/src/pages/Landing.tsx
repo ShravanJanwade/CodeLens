@@ -22,6 +22,7 @@ import {
   Terminal,
   TrendingUp,
   Workflow,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../features/auth/Auth';
 import { DEMO_REPO } from '../features/delivery/types';
@@ -115,6 +116,11 @@ export default function Landing() {
               <BadgeCheck size={14} />
               Seeded five-service monorepo · 3 production regions · 41 pipeline runs · every verdict computed
               live
+            </p>
+            <p className="lp-cta-note">
+              <Activity size={14} />
+              Or open the <Link to="/live">live example</Link>: a real repository whose GitHub Actions runs,
+              logs and Azure deploys CodeLens reads as you watch.
             </p>
           </div>
 
@@ -635,6 +641,9 @@ export default function Landing() {
             <Link className="btn btn-primary btn-lg" to={HERO_RUN}>
               Open the diagnosis <ArrowRight size={17} />
             </Link>
+            <Link className="btn btn-outline btn-lg" to="/live">
+              Watch a real repository <Activity size={16} />
+            </Link>
             <Link className="btn btn-outline btn-lg" to={signedIn ? '/repositories' : '/login?mode=signup'}>
               {signedIn ? 'Connect a repository' : 'Create a workspace'}
             </Link>
@@ -655,6 +664,7 @@ export default function Landing() {
           <span>Root-cause analysis for CI/CD pipelines.</span>
           <div className="lp-footer-links">
             <Link to={DEMO_PATH}>Demo</Link>
+            <Link to="/live">Live example</Link>
             <Link to="/benchmark">Benchmark</Link>
             <Link to="/documentation">Docs</Link>
             <Link to="/login">Sign in</Link>

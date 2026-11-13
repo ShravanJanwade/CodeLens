@@ -134,6 +134,24 @@ It prints the homepage and callback URLs to enter at
 ID and secret in a hidden prompt, stores them as the `GH_OAUTH_*` secrets and
 redeploys. Re-run it to switch to a new OAuth app or secret.
 
+## Live example token
+
+`/live` shows [northwind-commerce](https://github.com/ShravanJanwade/northwind-commerce),
+a real repository whose GitHub Actions runs CodeLens reads when someone opens the
+page. GitHub serves job logs only to authenticated requests, so give the app a
+read-only token for that repository. In Cloud Shell, after `gh auth login`:
+
+```bash
+bash CodeLens/deploy/azure/live-example-token.sh
+```
+
+It prints the fine-grained token to create (one repository; Actions, Contents
+and Deployments read-only), takes it in a hidden prompt, stores it as the
+`GH_SYNC_TOKEN` secret and redeploys. Syncs happen only while someone is looking,
+so the token does not keep the app awake. Without it the live example still
+works from the runs' public annotations, with weaker evidence and GitHub's
+anonymous limit of 60 requests an hour.
+
 ## Optional settings
 
 Add these under **Settings → Secrets and variables → Actions**, then re-run the
@@ -143,6 +161,7 @@ workflow.
 | --- | --- | --- |
 | `GH_OAUTH_CLIENT_ID`, `GH_OAUTH_CLIENT_SECRET` | secrets | Enable GitHub sign-in; `github-signin.sh` sets both (see above). |
 | `GEMINI_API_KEY` | secret | Switches `AI_PROVIDER` from `demo` to `gemini`. |
+| `GH_SYNC_TOKEN` | secret | Read-only token for the live example's Actions logs; `live-example-token.sh` sets it. |
 | `GEMINI_MODEL` | variable | Model for Gemini, default `gemini-2.5-flash`. |
 | `IDLE_SHUTDOWN_SECONDS` | variable | Idle time before scaling to zero, default `1800`, minimum `300`. |
 | `JWT_SECRET`, `TOKEN_ENCRYPTION_KEY` | secrets | Override the generated values, for example to keep Render's. |

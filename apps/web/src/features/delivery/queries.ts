@@ -18,9 +18,12 @@ export function useDeliveryOverview(repositoryId: string) {
     queryKey: ['delivery-overview', repositoryId],
     queryFn: () => api<{ data: DeliveryOverview }>(`${repo(repositoryId)}/delivery-overview`),
     select: (r) => r.data,
-    // A run in flight should visibly progress without a manual refresh.
-    refetchInterval: (query) =>
-      (query.state.data as { data?: DeliveryOverview } | undefined)?.data?.stats.activeRuns ? 15_000 : false,
+    // A sync or a run in flight should visibly progress without a manual refresh.
+    refetchInterval: (query) => {
+      const data = (query.state.data as { data?: DeliveryOverview } | undefined)?.data;
+      if (data?.sync?.running) return 3_000;
+      return data?.stats.activeRuns ? 15_000 : false;
+    },
   });
 }
 

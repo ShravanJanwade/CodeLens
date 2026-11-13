@@ -32,13 +32,23 @@ export async function refreshBranches(repo: Awaited<ReturnType<typeof getReposit
     syncedAt: new Date().toISOString(),
   };
 }
-export async function startIndex(repo: Awaited<ReturnType<typeof getRepository>>, requested?: string) {
-  const metadata = await github(repoPath(repo), repo.userId);
+export async function startIndex(
+  repo: Awaited<ReturnType<typeof getRepository>>,
+  requested?: string,
+  /** For repositories without an owner, such as the live example. */
+  token?: string,
+) {
+  const metadata = await github(repoPath(repo), repo.userId, undefined, token);
   if (metadata.size > 100000) throw fail('Repository exceeds the 100 MB indexing limit.');
   const branch = requested || metadata.default_branch;
   if (typeof branch !== 'string' || !branch || branch.length > 255) throw fail('Select a valid branch');
   // Validate the exact branch each time. A deleted selection is reported instead of silently indexing another branch.
-  const remote = await github(`${repoPath(repo)}/branches/${encodeURIComponent(branch)}`, repo.userId);
+  const remote = await github(
+    `${repoPath(repo)}/branches/${encodeURIComponent(branch)}`,
+    repo.userId,
+    undefined,
+    token,
+  );
   const db = getDb();
   const result = await db.transaction(async (tx) => {
     if (!(await tx.select().from(schema.repositories).where(eq(schema.repositories.id, repo.id))).length)

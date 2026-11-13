@@ -108,6 +108,10 @@ export const pipelineRuns = sqliteTable(
     actor: text('actor').notNull(),
     // Set when status = failed; points at the first stage that broke.
     failedStage: text('failed_stage'),
+    // Runs ingested from a CI provider: where the run lives there, and the
+    // provider's own per-workflow number (run_number is repository-unique).
+    externalUrl: text('external_url'),
+    displayNumber: integer('display_number'),
     createdAt: text('created_at').notNull(),
   },
   (t) => ({

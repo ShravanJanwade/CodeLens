@@ -9,6 +9,7 @@ import { createLLMProvider } from '@codelens/ai';
 import { getDb, schema } from '@codelens/db';
 import { DEFAULT_LIMITS } from '@codelens/shared';
 import { parseSource } from './source-parser';
+import { resolveLocalImport, workspacePackages } from './import-resolution';
 import { githubToken } from './identity';
 const execute = promisify(execFile);
 
@@ -137,17 +138,6 @@ function summaryFor(
   if (functions.length) parts.push(`Declared symbols: ${functions.join(', ')}.`);
   if (imports.length) parts.push(`Imports: ${imports.slice(0, 8).join(', ')}.`);
   return parts.join(' ');
-}
-
-function resolveLocalImport(sourcePath: string, specifier: string, knownPaths: Set<string>) {
-  if (!specifier.startsWith('.')) return undefined;
-  const base = path.posix.normalize(path.posix.join(path.posix.dirname(sourcePath), specifier));
-  const candidates = [
-    base,
-    ...['.ts', '.tsx', '.js', '.jsx', '.py', '.java'].map((extension) => `${base}${extension}`),
-    ...['/index.ts', '/index.tsx', '/index.js', '/__init__.py'].map((suffix) => `${base}${suffix}`),
-  ];
-  return candidates.find((candidate) => knownPaths.has(candidate));
 }
 
 type Finding = {
@@ -357,9 +347,10 @@ export async function analyzeRepository(
         .where(eq(schema.codeAnalysisRuns.id, runId));
     }
     const knownPaths = new Set(analyzedFiles.map((file) => file.path));
+    const packages = workspacePackages(tempDir);
     for (const file of analyzedFiles)
       for (const specifier of file.imports) {
-        const target = resolveLocalImport(file.path, specifier, knownPaths);
+        const target = resolveLocalImport(file.path, specifier, knownPaths, packages);
         if (target)
           await db.insert(schema.repositoryEdges).values({
             id: uid(),

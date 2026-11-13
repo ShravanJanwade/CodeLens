@@ -46,7 +46,9 @@ export default function DeliveryPage() {
   if (!overview.data) return null;
 
   const { repository, pipelines, environments, stats } = overview.data;
-  const broken = environments.filter((e) => e.status !== 'healthy');
+  // A target that has never been deployed to is not "behind"; only one whose
+  // last deploy failed or is still landing is.
+  const broken = environments.filter((e) => ['down', 'degraded', 'deploying'].includes(e.status));
   const openFailures = overview.data.runs.filter((r) => r.status === 'failed');
 
   return (
@@ -75,7 +77,8 @@ export default function DeliveryPage() {
               className="btn btn-primary"
               to={`/r/${encodeURIComponent(repositoryId)}/runs/${openFailures[0].runNumber}`}
             >
-              <CircleAlert size={15} /> Triage run #{openFailures[0].runNumber}
+              <CircleAlert size={15} /> Triage run #
+              {openFailures[0].displayNumber ?? openFailures[0].runNumber}
             </Link>
           )}
         </div>

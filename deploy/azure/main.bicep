@@ -57,6 +57,10 @@ param geminiApiKey string = ''
 
 param geminiModel string = ''
 
+@description('Optional read-only GitHub token for the live example: GitHub serves Actions logs only to authenticated requests.')
+@secure()
+param githubSyncToken string = ''
+
 resource environment 'Microsoft.App/managedEnvironments@2025-01-01' existing = {
   name: environmentName
 }
@@ -72,7 +76,8 @@ var secrets = concat(
     { name: 'token-encryption-key', value: tokenEncryptionKey }
   ],
   githubOAuth ? [{ name: 'github-client-secret', value: githubClientSecret }] : [],
-  gemini ? [{ name: 'gemini-api-key', value: geminiApiKey }] : []
+  gemini ? [{ name: 'gemini-api-key', value: geminiApiKey }] : [],
+  !empty(githubSyncToken) ? [{ name: 'github-sync-token', value: githubSyncToken }] : []
 )
 
 var settings = concat(
@@ -100,7 +105,8 @@ var settings = concat(
         { name: 'GEMINI_API_KEY', secretRef: 'gemini-api-key' }
         { name: 'GEMINI_MODEL', value: geminiModel }
       ]
-    : []
+    : [],
+  !empty(githubSyncToken) ? [{ name: 'GITHUB_SYNC_TOKEN', secretRef: 'github-sync-token' }] : []
 )
 
 resource app 'Microsoft.App/containerApps@2025-01-01' = {
