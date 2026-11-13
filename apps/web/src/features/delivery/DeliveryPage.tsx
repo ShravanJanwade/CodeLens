@@ -1,300 +1,246 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  Activity,
-  BadgeCheck,
-  CircleAlert,
-  Clock,
-  ExternalLink,
-  GitBranch,
-  Globe2,
-  Radar,
-  ShieldCheck,
-  Timer,
-  TrendingUp,
-  Workflow,
-} from 'lucide-react';
+import { ArrowRight, Radar } from 'lucide-react';
 import { useDeliveryOverview, useRuns } from './queries';
 import { DEMO_REPO } from './types';
-import { duration, micros, pct, relative } from './format';
-import RegionMatrix from './RegionMatrix';
+import { duration, micros, pct } from './format';
+import Environments from './Environments';
 import RunList from './RunList';
+import { ActionLog, ReleaseInProgress } from './Releases';
+import { Ago, useAccessGate } from './ui';
 import { Loading, ErrorState } from '../../components/ui';
 
 /**
- * Delivery overview: the state of every environment, the health of
- * the pipelines, and the runs that need attention.
+ * The state of one repository's delivery: anything moving right now,
+ * where each release is running, and every run with its root cause.
  *
- * Ordering is deliberate. The first thing on the page is whether
- * anything is broken right now, then where, then why. A dashboard
- * that leads with a 30-day chart answers a question nobody is asking
- * at the moment they open it.
+ * The page answers "is anything broken or waiting on me?" before it
+ * answers anything historical.
  */
 export default function DeliveryPage() {
   const params = useParams();
   const repositoryId = params.repoId ?? DEMO_REPO;
-
   const [branch, setBranch] = useState('all');
   const [status, setStatus] = useState('all');
   const [category, setCategory] = useState('all');
 
   const overview = useDeliveryOverview(repositoryId);
   const runs = useRuns(repositoryId, { branch, status, category, limit: 40 });
+  const gate = useAccessGate(repositoryId);
 
-  if (overview.isLoading) return <Loading label="Loading delivery state…" />;
+  if (overview.isLoading) return <Loading label="Loading delivery…" />;
   if (overview.error) return <ErrorState error={overview.error} retry={() => overview.refetch()} />;
   if (!overview.data) return null;
 
   const { repository, pipelines, environments, stats } = overview.data;
-  // A target that has never been deployed to is not "behind"; only one whose
-  // last deploy failed or is still landing is.
-  const broken = environments.filter((e) => ['down', 'degraded', 'deploying'].includes(e.status));
-  const openFailures = overview.data.runs.filter((r) => r.status === 'failed');
+  const active = overview.data.activeRuns ?? [];
+  const latestFailure = overview.data.runs.find((r) => r.status === 'failed');
+  const filtered = branch !== 'all' || status !== 'all' || category !== 'all';
+  const base = `/r/${encodeURIComponent(repositoryId)}`;
 
   return (
-    <div className="dl-page">
-      <header className="dl-head">
-        <div className="dl-head-main">
-          <h1>
-            <Workflow size={24} style={{ color: 'var(--c-brand-ink)' }} />
-            Delivery
-            {stats.activeRuns > 0 && (
-              <span className="badge badge-run">
-                <i className="dot dot-run" /> {stats.activeRuns} running
-              </span>
-            )}
-          </h1>
-          <p>
-            <code className="code-inline">{repository.fullName}</code> — {repository.description}
+    <div className="page-stack">
+      <header className="page-head">
+        <div>
+          <h1>Delivery</h1>
+          <p className="page-sub">
+            {pipelines.length} workflow{pipelines.length === 1 ? '' : 's'} · {environments.length}{' '}
+            environments in {new Set(environments.map((e) => e.region)).size} regions · default branch{' '}
+            <span className="mono">{repository.defaultBranch}</span>
           </p>
         </div>
-        <div className="dl-head-actions">
-          <Link className="btn btn-secondary" to={`/r/${encodeURIComponent(repositoryId)}/impact`}>
-            <Radar size={15} /> Change impact
+        <div className="page-actions">
+          <Link className="btn btn-secondary btn-sm" to={`${base}/impact`}>
+            <Radar size={14} /> Change impact
           </Link>
-          {openFailures[0] && (
-            <Link
-              className="btn btn-primary"
-              to={`/r/${encodeURIComponent(repositoryId)}/runs/${openFailures[0].runNumber}`}
-            >
-              <CircleAlert size={15} /> Triage run #
-              {openFailures[0].displayNumber ?? openFailures[0].runNumber}
+          {latestFailure && (
+            <Link className="btn btn-primary btn-sm" to={`${base}/runs/${latestFailure.runNumber}`}>
+              Latest failure <ArrowRight size={14} />
             </Link>
           )}
         </div>
       </header>
 
-      {/* ---- What needs attention, first ---- */}
-      {broken.length > 0 && (
-        <div className="alert alert-warn">
-          <CircleAlert size={18} />
-          <div>
-            <strong>
-              {broken.length} deploy target{broken.length === 1 ? '' : 's'} not on the latest revision
-            </strong>
-            <p>
-              {broken.map((e) => `${e.name}/${e.region}`).join(', ')} —{' '}
-              {broken.length === 1 ? 'it is' : 'they are'} serving an older build because the last deploy did
-              not complete. The artifact itself is fine in the other regions.
-            </p>
-          </div>
+      <dl className="stats">
+        <div>
+          <dt>Success rate</dt>
+          <dd>{pct(stats.successRate, 0)}</dd>
+          <span>
+            {stats.windowRuns - stats.failedRuns} of {stats.windowRuns} recent runs passed
+          </span>
         </div>
+        <div>
+          <dt>Median duration</dt>
+          <dd>{duration(stats.p50DurationMs)}</dd>
+          <span>p95 {duration(stats.p95DurationMs)}</span>
+        </div>
+        <div>
+          <dt>Failures diagnosed</dt>
+          <dd>{stats.diagnosedFailures}</dd>
+          <span>in {micros(stats.p95DiagnosisMs)} each at p95, no model call</span>
+        </div>
+        <div>
+          <dt>Not the author&rsquo;s fault</dt>
+          <dd>{pct(stats.exoneratedPct, 0)}</dd>
+          <span>
+            {stats.exoneratedFailures} of {stats.diagnosedFailures} failures cleared the commit
+          </span>
+        </div>
+      </dl>
+
+      {active.length > 0 && (
+        <section className="section">
+          <div className="section-hd">
+            <h2>In progress</h2>
+          </div>
+          <div className="stack-3">
+            {active.map((run) => (
+              <ReleaseInProgress key={run.id} repositoryId={repositoryId} run={run} gate={gate} />
+            ))}
+          </div>
+        </section>
       )}
 
-      {/* ---- Headline metrics ---- */}
-      <div className="dl-metrics">
-        <div className="dl-metric">
-          <span className="dl-metric-top">
-            <TrendingUp size={11} /> Success rate
-          </span>
-          <span className="dl-metric-value">{pct(stats.successRate, 1)}</span>
-          <span className="dl-metric-note">
-            {stats.windowRuns - stats.failedRuns} of {stats.windowRuns} recent runs green
-          </span>
+      <section className="section">
+        <div className="section-hd">
+          <h2>Environments</h2>
+          <p>What each target runs now. Roll back from the menu on its row.</p>
         </div>
-        <div className="dl-metric">
-          <span className="dl-metric-top">
-            <Clock size={11} /> Pipeline duration
-          </span>
-          <span className="dl-metric-value">
-            {duration(stats.p50DurationMs)}
-            <small>p50</small>
-          </span>
-          <span className="dl-metric-note">p95 {duration(stats.p95DurationMs)}</span>
-        </div>
-        <div className="dl-metric accent">
-          <span className="dl-metric-top">
-            <Timer size={11} /> Time to root cause
-          </span>
-          <span className="dl-metric-value">{micros(stats.p95DiagnosisMs)}</span>
-          <span className="dl-metric-note">p95 across {stats.diagnosedFailures} classified failures</span>
-        </div>
-        <div className="dl-metric pass">
-          <span className="dl-metric-top">
-            <BadgeCheck size={11} /> Author exonerated
-          </span>
-          <span className="dl-metric-value">{pct(stats.exoneratedPct, 0)}</span>
-          <span className="dl-metric-note">
-            {stats.exoneratedFailures} of {stats.diagnosedFailures} failures were not the commit&rsquo;s fault
-          </span>
-        </div>
-        <div className="dl-metric">
-          <span className="dl-metric-top">
-            <Globe2 size={11} /> Deploy targets
-          </span>
-          <span className="dl-metric-value">{environments.length}</span>
-          <span className="dl-metric-note">
-            {new Set(environments.map((e) => e.region)).size} regions ·{' '}
-            {new Set(environments.map((e) => e.tier)).size} tiers
-          </span>
-        </div>
-      </div>
-
-      {/* ---- Region matrix ---- */}
-      <section className="panel-flush">
-        <div className="panel-hd">
-          <Globe2 size={15} style={{ color: 'var(--c-ink-3)' }} />
-          <div>
-            <h2>Where the code is running</h2>
-            <p>Live revision, health and traffic for every deploy target.</p>
-          </div>
-        </div>
-        <RegionMatrix environments={environments} />
-      </section>
-
-      {/* ---- Pipelines ---- */}
-      <section className="panel-flush">
-        <div className="panel-hd">
-          <Activity size={15} style={{ color: 'var(--c-ink-3)' }} />
-          <div>
-            <h2>Pipelines</h2>
-            <p>Workflows discovered in this repository.</p>
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Workflow</th>
-                <th>Definition</th>
-                <th className="right">Success rate</th>
-                <th className="right">Median duration</th>
-                <th className="right">Last run</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pipelines.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <span className="row-tight">
-                      <i
-                        className={`dot dot-${
-                          (p.successRate ?? 1) >= 0.9 ? 'pass' : (p.successRate ?? 1) >= 0.7 ? 'warn' : 'fail'
-                        }`}
-                      />
-                      <strong>{p.name}</strong>
-                    </span>
-                  </td>
-                  <td>
-                    <code className="code-inline">{p.filePath}</code>
-                  </td>
-                  <td className="right num">{pct(p.successRate, 1)}</td>
-                  <td className="right num">{duration(p.p50DurationMs)}</td>
-                  <td className="right">{relative(p.lastRunAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* ---- Runs ---- */}
-      <section className="panel-flush">
-        <div className="panel-hd">
-          <GitBranch size={15} style={{ color: 'var(--c-ink-3)' }} />
-          <div>
-            <h2>Recent runs</h2>
-            <p>Every failure carries a classified root cause.</p>
-          </div>
-          <div className="panel-hd-actions">
-            <span className="tag-mono">{runs.data?.total ?? 0} shown</span>
-          </div>
-        </div>
-
-        <div className="runs-filters">
-          <select
-            className="select"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            aria-label="Filter by branch"
-          >
-            <option value="all">All branches</option>
-            {runs.data?.facets.branches.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="all">Any status</option>
-            <option value="failed">Failed</option>
-            <option value="success">Passed</option>
-            <option value="running">Running</option>
-          </select>
-          <select
-            className="select"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            aria-label="Filter by root cause"
-          >
-            <option value="all">Any root cause</option>
-            {runs.data?.facets.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          {(branch !== 'all' || status !== 'all' || category !== 'all') && (
-            <button
-              type="button"
-              className="btn btn-xs btn-ghost"
-              onClick={() => {
-                setBranch('all');
-                setStatus('all');
-                setCategory('all');
-              }}
-            >
-              Clear filters
-            </button>
+        <div className="panel-flush">
+          {environments.length ? (
+            <Environments
+              repositoryId={repositoryId}
+              repoFullName={overview.data.sync ? repository.fullName : null}
+              environments={environments}
+              gate={gate}
+            />
+          ) : (
+            <div className="state">
+              <h3>No deploys yet</h3>
+              <p>Jobs with a GitHub environment show up here once they run.</p>
+            </div>
           )}
-          <div className="spacer" />
-          <Link className="link" to={`/r/${encodeURIComponent(repositoryId)}/flakes`}>
-            Flaky test registry <ExternalLink size={12} />
-          </Link>
         </div>
-
-        {runs.isLoading && !runs.data ? (
-          <Loading label="Loading runs…" />
-        ) : runs.error ? (
-          <ErrorState error={runs.error} retry={() => runs.refetch()} />
-        ) : (
-          <RunList repositoryId={repositoryId} runs={runs.data?.data ?? []} />
-        )}
       </section>
 
-      <p className="text-xs muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <ShieldCheck size={12} />
-        Root causes are computed by a deterministic classifier over stage logs, run history and deploy
-        topology — no model call, so the same evidence always yields the same verdict.{' '}
-        <Link className="link" to="/benchmark">
-          See its measured accuracy
-        </Link>
-      </p>
+      <div className="split">
+        <section className="section">
+          <div className="section-hd">
+            <h2>Runs</h2>
+            <div className="filters">
+              <select
+                className="select"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                aria-label="Branch"
+              >
+                <option value="all">All branches</option>
+                {runs.data?.facets.branches.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="select"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                aria-label="Status"
+              >
+                <option value="all">Any status</option>
+                <option value="failed">Failed</option>
+                <option value="success">Passed</option>
+                <option value="running">In progress</option>
+                <option value="blocked">Waiting</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <select
+                className="select"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                aria-label="Root cause"
+              >
+                <option value="all">Any cause</option>
+                {runs.data?.facets.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              {filtered && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setBranch('all');
+                    setStatus('all');
+                    setCategory('all');
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="panel-flush">
+            {runs.isLoading && !runs.data ? (
+              <div className="stack-2" style={{ padding: 16 }}>
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className="skeleton" style={{ height: 40 }} />
+                ))}
+              </div>
+            ) : runs.error ? (
+              <ErrorState error={runs.error} retry={() => runs.refetch()} />
+            ) : (
+              <RunList repositoryId={repositoryId} runs={runs.data?.data ?? []} />
+            )}
+          </div>
+        </section>
+
+        <aside className="side">
+          <section className="section">
+            <div className="section-hd">
+              <h2>Workflows</h2>
+            </div>
+            <ul className="workflows panel-flush">
+              {pipelines.map((p) => (
+                <li key={p.id}>
+                  <div className="truncate">
+                    <strong>{p.name}</strong>
+                    <span className="mono muted">{p.filePath.split('/').pop()}</span>
+                  </div>
+                  <div className="workflow-stats">
+                    <span
+                      className={`num ${(p.successRate ?? 1) < 0.7 ? 'tone-fail' : (p.successRate ?? 1) < 0.9 ? 'tone-warn' : 'tone-pass'}`}
+                    >
+                      {pct(p.successRate, 0)}
+                    </span>
+                    <span className="muted num">{duration(p.p50DurationMs)}</span>
+                    <span className="muted">
+                      <Ago iso={p.lastRunAt} />
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="section">
+            <div className="section-hd">
+              <h2>Recent actions</h2>
+            </div>
+            <div className="panel-flush">
+              <ActionLog repositoryId={repositoryId} />
+            </div>
+          </section>
+          <p className="footnote">
+            Root causes come from a deterministic classifier over logs, run history and deploy topology.{' '}
+            <Link className="link" to="/benchmark">
+              How accurate it is
+            </Link>
+          </p>
+        </aside>
+      </div>
+      {gate.dialog}
     </div>
   );
 }

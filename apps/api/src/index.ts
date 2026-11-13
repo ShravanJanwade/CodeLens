@@ -25,6 +25,7 @@ import { resolveIdentity, checkOrigin } from './services/identity';
 import { authRoutes } from './routes/auth';
 import { repositoryRoutes } from './routes/repositories';
 import { deliveryRoutes } from './routes/delivery';
+import { deliveryActionRoutes } from './routes/delivery-actions';
 import { startIndex } from './services/repository-sync';
 
 type Variables = { userId: string; requestId: string };
@@ -283,10 +284,14 @@ app.use('/api/v1/*', async (c, next) => {
     )[0];
     if (repository?.userId && repository.userId !== c.get('userId'))
       throw apiError('NOT_FOUND', 'Repository not found', 404);
+    // Pipeline actions on a shared repository (the live example) are
+    // authorised by GitHub, per person, in services/delivery-actions.ts.
+    const githubAuthorised = /^\/api\/v1\/repositories\/[^/]+\/actions\//.test(c.req.path);
     if (
       repository &&
       !repository.userId &&
       repository.id !== 'taskforge' &&
+      !githubAuthorised &&
       !['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)
     )
       throw apiError(
@@ -311,6 +316,7 @@ app.route('/api/v1', authRoutes);
 app.route('/api/v1', repositoryRoutes);
 app.route('/api/v1', deliveryRoutes);
 app.route('/api/v1', pipelineRoutes);
+app.route('/api/v1', deliveryActionRoutes);
 
 app.get('/health', async (c) =>
   c.json({ status: 'ok', services: { api: true, database: true, ai: provider.name }, time: now() }),

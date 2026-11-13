@@ -1,254 +1,241 @@
 import { useState } from 'react';
-import {
-  AlertOctagon,
-  ArrowRight,
-  BadgeCheck,
-  Building2,
-  FileDiff,
-  FileText,
-  GitCommit,
-  Gauge,
-  Lightbulb,
-  ScrollText,
-  ShieldQuestion,
-  Sparkles,
-  Timer,
-  TrendingUp,
-  User,
-} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CircleCheck, CircleX, ExternalLink, RotateCcw, Wrench } from 'lucide-react';
 import type { DiagnosisSignal, RunDetail } from './types';
-import { micros, pct } from './format';
+import { micros } from './format';
 import { useLiveDiagnosis } from './queries';
-
-const SOURCE_ICON: Record<DiagnosisSignal['source'], typeof ScrollText> = {
-  log: ScrollText,
-  history: TrendingUp,
-  topology: Building2,
-  diff: FileDiff,
-  metrics: Gauge,
-};
+import { useRerun } from './actions';
+import { ActionButton, type useAccessGate } from './ui';
+import type { FixRequest } from './FixDialog';
 
 const SOURCE_LABEL: Record<DiagnosisSignal['source'], string> = {
-  log: 'Stage log',
-  history: 'Run history',
-  topology: 'Deploy topology',
-  diff: 'Commit diff',
-  metrics: 'Runner metrics',
+  log: 'Log',
+  history: 'History',
+  topology: 'Topology',
+  diff: 'Diff',
+  metrics: 'Metrics',
 };
 
-/** Arc gauge for the confidence score. */
-function Gauge58({ value }: { value: number }) {
-  const radius = 24;
-  const circumference = 2 * Math.PI * radius;
+function Signal({ signal, against }: { signal: DiagnosisSignal; against?: boolean }) {
   return (
-    <div className="dx-gauge">
-      <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">
-        <circle className="track" cx="29" cy="29" r={radius} />
-        <circle
-          className="value"
-          cx="29"
-          cy="29"
-          r={radius}
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - value)}
-        />
-      </svg>
-      <b>{Math.round(value * 100)}</b>
-    </div>
-  );
-}
-
-function SignalRow({ signal, against }: { signal: DiagnosisSignal; against: boolean }) {
-  const Icon = SOURCE_ICON[signal.source] ?? ScrollText;
-  return (
-    <div className={`signal ${against ? 'is-against' : ''}`}>
-      <span className={`signal-src src-${signal.source}`} title={SOURCE_LABEL[signal.source]}>
-        <Icon size={13} />
-      </span>
+    <li className={`signal ${against ? 'is-against' : ''}`}>
+      <span className="signal-src">{SOURCE_LABEL[signal.source] ?? signal.source}</span>
       <div className="signal-main">
-        <div className="signal-label">
-          {signal.label}
-          <span className="signal-weight">
-            {signal.weight === 0 ? 'rules out' : `w ${signal.weight.toFixed(2)}`}
-          </span>
-        </div>
+        <div className="signal-label">{signal.label}</div>
         <p className="signal-detail">{signal.detail}</p>
       </div>
-    </div>
+      <span className="signal-weight" title="How much this signal weighs in the verdict">
+        {signal.weight === 0 ? 'rules out' : signal.weight.toFixed(2)}
+      </span>
+    </li>
   );
 }
 
 export interface DiagnosisPanelProps {
   repositoryId: string;
-  runNumber: number;
+  run: RunDetail['run'];
   diagnosis: NonNullable<RunDetail['diagnosis']>;
-  onJumpToStage?: (stageKey: string) => void;
+  failedStageName: string | null;
+  gate: ReturnType<typeof useAccessGate>;
+  onFix: (fix: FixRequest) => void;
+  onJumpToStage: (stageKey: string) => void;
 }
 
 export default function DiagnosisPanel({
   repositoryId,
-  runNumber,
+  run,
   diagnosis,
+  failedStageName,
+  gate,
+  onFix,
   onJumpToStage,
 }: DiagnosisPanelProps) {
   const [live, setLive] = useState(false);
-  const rerun = useLiveDiagnosis(repositoryId, runNumber, live);
+  const rerunClassifier = useLiveDiagnosis(repositoryId, run.runNumber, live);
+  const rerun = useRerun(repositoryId);
+  const actionable = Boolean(run.externalUrl) && run.status !== 'running' && run.status !== 'blocked';
 
-  // Signals the engine kept as counter-evidence carry weight 0 or
-  // argue for a different category. Showing them separately is the
-  // point: a verdict you can only agree with is not a verdict.
   const supporting = diagnosis.signals.filter((s) => s.supports === diagnosis.category);
   const against = diagnosis.signals.filter((s) => s.supports !== diagnosis.category);
+  const confidence = Math.round(diagnosis.confidence * 100);
+  const strength = confidence >= 70 ? 'High' : confidence >= 45 ? 'Medium' : 'Low';
 
-  return (
-    <section className={`dx ${diagnosis.exonerated ? 'is-clear' : 'is-fail'}`}>
-      <header className="dx-hd">
-        <span className="dx-mark">
-          {diagnosis.exonerated ? <BadgeCheck size={21} /> : <AlertOctagon size={21} />}
-        </span>
-        <div className="dx-hd-main">
-          <div className="dx-title">
-            <span className={`badge ${diagnosis.exonerated ? 'badge-pass' : 'badge-fail'}`}>
-              {diagnosis.categoryLabel}
-            </span>
-            <h2>{diagnosis.title}</h2>
-          </div>
-          <p className="dx-summary">{diagnosis.summary}</p>
-        </div>
-        <div className="dx-confidence">
-          <Gauge58 value={diagnosis.confidence} />
-          <small>confidence</small>
-        </div>
-      </header>
+  const rerunFailed = (primary: boolean) => (
+    <ActionButton
+      gate={gate}
+      className={`btn ${primary ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+      busy={rerun.isPending && rerun.variables?.mode === 'failed'}
+      onClick={() => rerun.mutate({ runNumber: run.runNumber, mode: 'failed' })}
+    >
+      {!(rerun.isPending && rerun.variables?.mode === 'failed') && <RotateCcw size={14} />} Re-run failed jobs
+    </ActionButton>
+  );
 
-      {/* The one line a developer actually needs. */}
-      <div className={`dx-verdict ${diagnosis.exonerated ? 'is-clear' : 'is-blocked'}`}>
-        {diagnosis.exonerated ? <BadgeCheck size={15} /> : <AlertOctagon size={15} />}
-        {diagnosis.exonerated
-          ? 'Your change is not the cause. This failure would have happened on any commit.'
-          : 'This change introduced the failure and needs a fix before it can ship.'}
-        <div className="dx-verdict-action">
-          <span className="badge badge-brand">
-            <Lightbulb size={11} /> {diagnosis.actionLabel}
-          </span>
-          {onJumpToStage && (
+  const actions = (() => {
+    if (!actionable) return null;
+    switch (diagnosis.category) {
+      case 'config-drift':
+        return (
+          <>
+            {/* Anyone can preview the fix; opening it is the gated step. */}
             <button
               type="button"
-              className="btn btn-xs btn-ghost"
-              onClick={() => onJumpToStage(diagnosis.stageKey)}
+              className="btn btn-primary btn-sm"
+              onClick={() => onFix({ kind: 'config-drift', runNumber: run.runNumber })}
             >
-              Go to stage <ArrowRight size={11} />
+              <Wrench size={14} /> Fix with a pull request
             </button>
-          )}
+            {failedStageName && (
+              <ActionButton
+                gate={gate}
+                busy={rerun.isPending && rerun.variables?.mode === 'job'}
+                onClick={() =>
+                  rerun.mutate({ runNumber: run.runNumber, mode: 'job', stageKey: diagnosis.stageKey })
+                }
+              >
+                Re-run {failedStageName}
+              </ActionButton>
+            )}
+          </>
+        );
+      case 'flaky-test':
+        return (
+          <>
+            {rerunFailed(true)}
+            <Link className="btn btn-secondary btn-sm" to={`/r/${encodeURIComponent(repositoryId)}/flakes`}>
+              Flake history
+            </Link>
+          </>
+        );
+      case 'code-regression':
+      case 'migration-failure':
+        return (
+          <>
+            {diagnosis.blame.commitSha && run.externalUrl && (
+              <a
+                className="btn btn-secondary btn-sm"
+                href={run.externalUrl.replace(
+                  /\/actions\/runs\/\d+.*$/,
+                  `/commit/${diagnosis.blame.commitSha}`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View {diagnosis.blame.commitShort} <ExternalLink size={12} />
+              </a>
+            )}
+            {rerunFailed(false)}
+          </>
+        );
+      default:
+        return rerunFailed(true);
+    }
+  })();
+
+  return (
+    <section className={`dx ${diagnosis.exonerated ? 'is-clear' : 'is-fail'}`} aria-label="Diagnosis">
+      <div className="dx-hd">
+        <div className="dx-kicker">
+          <span className="dx-cat">{diagnosis.categoryLabel}</span>
+          <span className="dx-conf" title={`${confidence}% confidence`}>
+            <span className="dx-meter">
+              <i style={{ width: `${confidence}%` }} />
+            </span>
+            {strength} confidence · {confidence}%
+          </span>
         </div>
+        <h2>{diagnosis.title}</h2>
+        <p className="dx-summary">{diagnosis.summary}</p>
       </div>
 
-      <div className="dx-body">
-        <div className="dx-col">
-          <h3>
-            <ScrollText size={12} /> Evidence for this verdict
-            <span className="tab-count">{supporting.length}</span>
-          </h3>
-          {supporting.length === 0 ? (
-            <p className="text-sm muted">No supporting signals were recorded.</p>
+      <div className={`dx-verdict ${diagnosis.exonerated ? 'is-clear' : 'is-blocked'}`}>
+        {diagnosis.exonerated ? <CircleCheck size={15} /> : <CircleX size={15} />}
+        <span>
+          {diagnosis.exonerated ? (
+            <>Not caused by this commit. It would have failed on any commit.</>
           ) : (
-            supporting.map((signal) => <SignalRow key={signal.id} signal={signal} against={false} />)
-          )}
-
-          {against.length > 0 && (
             <>
-              <h3 style={{ marginTop: 20 }}>
-                <ShieldQuestion size={12} /> Considered and ruled out
-                <span className="tab-count">{against.length}</span>
-              </h3>
-              {against.map((signal) => (
-                <SignalRow key={signal.id} signal={signal} against />
-              ))}
+              Caused by this change
+              {diagnosis.blame.commitShort ? (
+                <>
+                  {' '}
+                  in <span className="sha">{diagnosis.blame.commitShort}</span>
+                </>
+              ) : null}
+              {diagnosis.blame.file ? (
+                <>
+                  , <span className="mono">{diagnosis.blame.file}</span>
+                </>
+              ) : null}
+              .
             </>
           )}
+        </span>
+        <button type="button" className="link dx-jump" onClick={() => onJumpToStage(diagnosis.stageKey)}>
+          Show the failing job
+        </button>
+      </div>
+
+      <div className="dx-next">
+        <div>
+          <h3>Next step</h3>
+          <p>{diagnosis.recommendation}</p>
         </div>
+        {actions && <div className="dx-actions">{actions}</div>}
+      </div>
 
-        <div className="dx-col">
-          <h3>
-            <Lightbulb size={12} /> Recommended next step
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--c-ink-2)', lineHeight: 1.6 }}>
-            {diagnosis.recommendation}
-          </p>
+      <details className="dx-section" open>
+        <summary>
+          Evidence <span className="muted">{supporting.length}</span>
+        </summary>
+        <ul className="signals">
+          {supporting.map((signal) => (
+            <Signal key={signal.id} signal={signal} />
+          ))}
+        </ul>
+        {against.length > 0 && (
+          <>
+            <p className="signals-caption">Weighed against it</p>
+            <ul className="signals">
+              {against.map((signal) => (
+                <Signal key={signal.id} signal={signal} against />
+              ))}
+            </ul>
+          </>
+        )}
+      </details>
 
-          {(diagnosis.blame.file || diagnosis.blame.commitShort) && (
-            <>
-              <h3 style={{ marginTop: 20 }}>
-                <FileText size={12} /> Where to look
-              </h3>
-              <div className="stack-2">
-                {diagnosis.blame.file && (
-                  <div className="row-tight text-xs">
-                    <FileText size={12} className="muted" />
-                    <code className="code-inline">{diagnosis.blame.file}</code>
-                  </div>
-                )}
-                {diagnosis.blame.commitShort && (
-                  <div className="row-tight text-xs">
-                    <GitCommit size={12} className="muted" />
-                    <code className="code-inline">{diagnosis.blame.commitShort}</code>
-                  </div>
-                )}
-                {diagnosis.blame.author && (
-                  <div className="row-tight text-xs muted">
-                    <User size={12} />
-                    {diagnosis.blame.author}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          <h3 style={{ marginTop: 20 }}>
-            <Timer size={12} /> How this was produced
-          </h3>
-          <p className="text-xs muted" style={{ lineHeight: 1.6 }}>
-            Classified deterministically from {diagnosis.signals.length} signals in{' '}
-            <strong style={{ color: 'var(--c-ink-2)' }}>{micros(diagnosis.computeMs)}</strong>. No model call,
-            so the same evidence always produces the same verdict.
-          </p>
-
+      <details className="dx-section">
+        <summary>How this was produced</summary>
+        <p className="dx-how">
+          Classified deterministically from {diagnosis.signals.length} signals in{' '}
+          {micros(diagnosis.computeMs)}, with no model call, so the same evidence always produces the same
+          verdict.
+        </p>
+        <div className="row-wrap" style={{ marginTop: 10 }}>
           <button
             type="button"
-            className="btn btn-sm btn-secondary"
-            style={{ marginTop: 12 }}
+            className="btn btn-secondary btn-sm"
             onClick={() => setLive(true)}
-            disabled={rerun.isFetching}
+            disabled={rerunClassifier.isFetching}
           >
-            <Sparkles size={13} />
-            {rerun.isFetching ? 'Re-classifying…' : 'Re-run the classifier now'}
+            {rerunClassifier.isFetching ? 'Classifying…' : 'Run the classifier again'}
           </button>
-
-          {rerun.data && (
-            <div className="alert alert-info" style={{ marginTop: 12, display: 'block' }}>
-              <strong>
-                {rerun.data.categoryLabel} · {pct(rerun.data.confidence, 0)} confidence
-              </strong>
-              <p className="text-xs" style={{ marginTop: 4 }}>
-                Recomputed live in {micros(rerun.data.elapsedMs)} from {rerun.data.evidenceUsed.logBytes}{' '}
-                bytes of log, {rerun.data.evidenceUsed.siblingRegions} sibling regions and{' '}
-                {rerun.data.evidenceUsed.greenBaselineSamples} green baseline samples.
-              </p>
-              {rerun.data.category !== diagnosis.category && (
-                <p className="text-xs" style={{ marginTop: 6, color: 'var(--c-warn-ink)' }}>
-                  This differs from the stored verdict because the live path reconstructs evidence from the
-                  database and has no commit diff available.
-                </p>
-              )}
-            </div>
+          {rerunClassifier.data && (
+            <span className="text-xs muted">
+              {rerunClassifier.data.categoryLabel}, {Math.round(rerunClassifier.data.confidence * 100)}%, in{' '}
+              {micros(rerunClassifier.data.elapsedMs)} from{' '}
+              {rerunClassifier.data.evidenceUsed.logBytes.toLocaleString()} bytes of log
+              {rerunClassifier.data.category !== diagnosis.category
+                ? ' (differs from the stored verdict)'
+                : ''}
+            </span>
           )}
-          {rerun.error && (
-            <p className="field-error" style={{ marginTop: 10 }}>
-              {(rerun.error as Error).message}
-            </p>
+          {rerunClassifier.error && (
+            <span className="text-xs tone-fail">{rerunClassifier.error.message}</span>
           )}
         </div>
-      </div>
+      </details>
     </section>
   );
 }

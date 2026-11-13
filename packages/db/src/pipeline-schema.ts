@@ -112,6 +112,8 @@ export const pipelineRuns = sqliteTable(
     // provider's own per-workflow number (run_number is repository-unique).
     externalUrl: text('external_url'),
     displayNumber: integer('display_number'),
+    /** The one environment a manual redeploy targeted; null for a normal run. */
+    deployTarget: text('deploy_target'),
     createdAt: text('created_at').notNull(),
   },
   (t) => ({
@@ -251,6 +253,40 @@ export const environmentDeployments = sqliteTable(
   (t) => ({
     env: index('idx_env_deployments_env').on(t.environmentId, t.startedAt),
     run: index('idx_env_deployments_run').on(t.runId),
+  }),
+);
+
+/**
+ * Every change a person made to a pipeline from CodeLens: re-runs,
+ * redeploys, approvals and fix pull requests. CodeLens acts with the
+ * person's own GitHub token, so GitHub keeps its audit trail too; this
+ * one is what the delivery views show.
+ */
+export const deliveryActions = sqliteTable(
+  'delivery_actions',
+  {
+    id: text('id').primaryKey(),
+    repositoryId: text('repository_id')
+      .notNull()
+      .references(() => repositories.id),
+    userId: text('user_id').notNull(),
+    githubLogin: text('github_login').notNull(),
+    kind: text('kind', {
+      enum: ['rerun-failed', 'rerun-all', 'rerun-job', 'redeploy', 'approve', 'reject', 'fix-pr'],
+    }).notNull(),
+    /** What it acted on: a run number, an environment or a test name. */
+    target: text('target').notNull(),
+    runId: text('run_id'),
+    environment: text('environment'),
+    detail: text('detail').notNull().default('{}'),
+    outcome: text('outcome', { enum: ['requested', 'failed'] }).notNull(),
+    message: text('message'),
+    url: text('url'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => ({
+    repo: index('idx_delivery_actions_repo').on(t.repositoryId, t.createdAt),
+    user: index('idx_delivery_actions_user').on(t.userId, t.createdAt),
   }),
 );
 

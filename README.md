@@ -2,19 +2,23 @@
 
 **Root-cause analysis for CI/CD pipelines.** When a pipeline goes red, CodeLens
 reads the stage logs, the run history and the deploy topology, and tells you
-*why* — which region, which branch, which commit, which test — and whether your
-change is even to blame.
+*why*: which region, which branch, which commit, which test, and whether your
+change is to blame. Then it lets a maintainer act on it from the same screen:
+re-run what failed, roll a region back to a release that worked, approve or
+reject a production deploy waiting at its gate, or open the fix as a pull
+request.
 
-> **[Open the live demo →](https://codelens.icygrass-95174406.westus2.azurecontainerapps.io/demo)**
-> No sign-in. Drops straight into a seeded five-service monorepo with 41 real
-> pipeline runs across three production regions. The demo sleeps when nobody is
-> using it, so the first load after a quiet spell takes about a minute.
->
-> **[Watch it on a real repository →](https://codelens.icygrass-95174406.westus2.azurecontainerapps.io/live)**
+> **[See it on a real repository →](https://codelens.icygrass-95174406.westus2.azurecontainerapps.io/live)**
 > [northwind-commerce](https://github.com/ShravanJanwade/northwind-commerce) is a
-> real TypeScript monorepo with real GitHub Actions CI/CD that deploys to three
-> Azure regions. CodeLens ingests its runs, logs and deployments when you open
-> the page and diagnoses every red build.
+> real TypeScript monorepo whose GitHub Actions release to three Azure regions:
+> tests, staging, a bake in staging, then production behind an approval. CodeLens
+> reads its runs, logs and deployments when you open the page and diagnoses every
+> red build. Anyone can look; its maintainers sign in with GitHub to act.
+>
+> **[Open the recorded demo →](https://codelens.icygrass-95174406.westus2.azurecontainerapps.io/demo)**
+> A seeded five-service monorepo with 41 pipeline runs across three production
+> regions. Both sleep when nobody is using them, so the first load after a quiet
+> spell takes about a minute.
 
 ---
 
@@ -247,6 +251,38 @@ fails and its siblings do not. GitHub serves job logs only to authenticated
 requests, so the deployment gives CodeLens a read-only token for that one
 repository (`deploy/azure/live-example-token.sh`); without it the live example
 falls back to the runs' public annotations.
+
+## Acting on a diagnosis
+
+A diagnosis ends in a next step, and the step is a button where one exists:
+
+| Diagnosis | Action |
+| --- | --- |
+| Config drift | **Fix with a pull request**: the failing environment's settings file gets the keys its healthy siblings set, copied from them, shown as a diff first |
+| Flaky test (known) | **Re-run failed jobs**, or **quarantine** the test: a pull request that skips it with a note saying why |
+| Timeout, credential, capacity | **Re-run failed jobs**, or one job |
+| Regression, migration | The blamed commit, and a re-run once it is fixed |
+
+Environments can be **rolled back**: pick a release that ran there before and
+CodeLens starts the repository's deploy workflow for that environment alone at
+that commit. A release **waiting at a production approval** shows who may
+approve it and can be approved or rejected in place, after a **bake** in staging
+whose progress the overview shows live.
+
+**Who can do what.** Looking is open to anyone. Acting needs a GitHub sign-in,
+and every action is checked with GitHub and then made *as that person*, with
+their own token: GitHub decides whether they can write to the repository, its
+environment reviewers decide who may approve, and its audit log records it.
+CodeLens holds no cloud credentials; deploys still run through the repository's
+own workflow, which signs in to Azure with OpenID Connect. Actions are
+rate-limited per person, protected against cross-site requests, and recorded in
+CodeLens with their outcome, refusals included.
+
+**What the deploy workflow needs.** A redeploy calls `workflow_dispatch` with a
+`target` environment and a `ref` commit; CodeLens checks the workflow accepts
+both before calling it, and names its runs `Deploy <target> at <commit>`.
+[northwind-commerce's Deploy workflow](https://github.com/ShravanJanwade/northwind-commerce/blob/main/.github/workflows/deploy.yml)
+is a complete example, including the bake job.
 
 ## Repository layout
 

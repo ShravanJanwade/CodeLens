@@ -1,17 +1,22 @@
 import { AlertCircle, ArrowRight, Code2, LoaderCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+/** The CodeLens mark: a lens in a rounded square, drawn in the current text colour. */
+export function LogoMark({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="logo-mark">
+      <rect width="24" height="24" rx="6" fill="currentColor" />
+      <circle cx="12" cy="12" r="6.2" fill="var(--c-canvas)" />
+      <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+      <path d="M16.6 16.6 20 20" stroke="var(--c-canvas)" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="brand" aria-label="CodeLens home">
-      <span className="brand-mark">
-        <Code2 size={20} />
-      </span>
-      {!compact && (
-        <span>
-          CodeLens<span className="brand-period">.</span>
-        </span>
-      )}
+      <LogoMark />
+      {!compact && <span>CodeLens</span>}
     </Link>
   );
 }

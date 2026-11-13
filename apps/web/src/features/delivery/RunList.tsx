@@ -1,102 +1,78 @@
 import { Link } from 'react-router-dom';
-import { BadgeCheck, GitBranch, GitPullRequest, Rocket } from 'lucide-react';
+import { GitBranch, Rocket } from 'lucide-react';
 import type { RunSummary } from './types';
-import { duration, relative, STATUS_LABEL, tone, TRIGGER_LABEL } from './format';
+import { duration, TRIGGER_LABEL } from './format';
+import { Ago, StatusIcon } from './ui';
 
 export interface RunListProps {
   repositoryId: string;
   runs: RunSummary[];
-  /** Hides the branch column on narrow embeds. */
-  compact?: boolean;
 }
 
-export default function RunList({ repositoryId, runs, compact = false }: RunListProps) {
+/**
+ * Runs as GitHub lists them, one line per run: what changed, where it
+ * ran, and, for a failure, the root cause CodeLens found. The cause is
+ * the column a plain CI list doesn't have.
+ */
+export default function RunList({ repositoryId, runs }: RunListProps) {
   if (runs.length === 0) {
     return (
       <div className="state">
         <span className="state-icon">
-          <Rocket size={20} />
+          <Rocket size={18} />
         </span>
         <h3>No runs match these filters</h3>
-        <p>Clear a filter to see the rest of the pipeline history.</p>
+        <p>Clear a filter to see the rest of the history.</p>
       </div>
     );
   }
 
   return (
-    <div>
-      {runs.map((run) => (
-        <div
-          key={run.id}
-          className={`run-row ${run.status === 'failed' ? 'is-failed' : ''} ${
-            run.status === 'running' ? 'is-running' : ''
-          }`}
-        >
-          <i className={`dot dot-${tone(run.status)}`} title={STATUS_LABEL[run.status] ?? run.status} />
-
-          <div className="run-title">
-            <Link
-              to={`/r/${encodeURIComponent(repositoryId)}/runs/${run.runNumber}`}
-              className="truncate"
-              style={{ display: 'block' }}
-            >
-              <strong>{run.commitMessage}</strong>
-            </Link>
-            <div className="run-title-meta">
-              <span className="tag-mono">#{run.displayNumber ?? run.runNumber}</span>
-              <span>{run.pipeline}</span>
-              <span>·</span>
-              <span>{TRIGGER_LABEL[run.trigger] ?? run.trigger}</span>
-              <span>·</span>
-              <span>{run.commitAuthor}</span>
-              {run.pullRequestNumber && (
-                <>
-                  <span>·</span>
-                  <span className="row-tight">
-                    <GitPullRequest size={10} /> #{run.pullRequestNumber}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {!compact && (
-            <div className="run-branch-cell">
-              <span className="run-branch">
-                <GitBranch size={11} />
-                {run.branch}
-              </span>
-              <div className="run-title-meta">
-                <span className="tag-mono">{run.commitShort}</span>
-                {run.targetTier !== 'none' && <span>→ {run.targetTier}</span>}
+    <ul className="runs">
+      {runs.map((run) => {
+        const href = `/r/${encodeURIComponent(repositoryId)}/runs/${run.runNumber}`;
+        return (
+          <li key={run.id} className={`run s-${run.status}`}>
+            <StatusIcon status={run.status} />
+            <div className="run-main">
+              <Link to={href} className="run-title">
+                {run.deployTarget ? <span className="run-kind">Redeploy {run.deployTarget}</span> : null}
+                <span className="truncate">{run.commitMessage}</span>
+              </Link>
+              <div className="run-meta">
+                <span>
+                  {run.pipeline} #{run.displayNumber ?? run.runNumber}
+                </span>
+                <span className="run-branch">
+                  <GitBranch size={11} />
+                  {run.branch}
+                </span>
+                <span className="sha">{run.commitShort}</span>
+                <span className="hide-sm">{run.actor}</span>
+                <span className="hide-sm">{TRIGGER_LABEL[run.trigger] ?? run.trigger}</span>
               </div>
             </div>
-          )}
-
-          <div className="run-verdict">
             {run.diagnosis ? (
-              <>
-                <span className={`badge ${run.diagnosis.exonerated ? 'badge-pass' : 'badge-fail'}`}>
-                  {run.diagnosis.exonerated && <BadgeCheck size={10} />}
-                  {run.diagnosis.categoryLabel}
-                </span>
-                <span className="text-xs muted truncate">{run.diagnosis.actionLabel}</span>
-              </>
-            ) : run.status === 'running' ? (
-              <span className="badge badge-run">In progress</span>
-            ) : run.status === 'success' ? (
-              <span className="badge badge-pass">Passed</span>
+              <Link
+                to={href}
+                className={`cause ${run.diagnosis.exonerated ? 'is-clear' : ''}`}
+                title={run.diagnosis.title}
+              >
+                {run.diagnosis.categoryLabel}
+                <span className="cause-conf">{Math.round(run.diagnosis.confidence * 100)}%</span>
+              </Link>
             ) : (
-              <span className="badge badge-idle">{STATUS_LABEL[run.status] ?? run.status}</span>
+              <span className="cause-none" />
             )}
-          </div>
-
-          <div className="run-timing">
-            <b>{run.status === 'running' ? 'live' : duration(run.durationMs)}</b>
-            {relative(run.startedAt)}
-          </div>
-        </div>
-      ))}
-    </div>
+            <div className="run-when">
+              <span className="num">
+                {run.durationMs ? duration(run.durationMs) : run.status === 'blocked' ? 'Waiting' : '—'}
+              </span>
+              <Ago iso={run.startedAt} />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -34,7 +34,9 @@ export async function github(
       status === 401 ? 401 : status === 404 ? 404 : status === 403 || status === 429 ? 403 : 502,
     );
   }
-  return response.status === 204 ? null : response.json();
+  // Several Actions endpoints answer 201 or 202 with an empty body.
+  const text = response.status === 204 ? '' : await response.text();
+  return text ? JSON.parse(text) : null;
 }
 export const repoPath = (repo: { owner: string; name: string }) =>
   `/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}`;

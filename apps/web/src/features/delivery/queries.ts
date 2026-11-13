@@ -22,7 +22,13 @@ export function useDeliveryOverview(repositoryId: string) {
     refetchInterval: (query) => {
       const data = (query.state.data as { data?: DeliveryOverview } | undefined)?.data;
       if (data?.sync?.running) return 3_000;
-      return data?.stats.activeRuns ? 15_000 : false;
+      // A release in progress moves every few seconds; so does the page.
+      const active = data?.activeRuns ?? [];
+      if (active.some((r) => r.status === 'running' || r.status === 'queued')) return 5_000;
+      // Waiting at an approval changes only when a person acts.
+      if (active.length || data?.stats.activeRuns) return 15_000;
+      // Idle pages do not poll: an open tab must not keep a scale-to-zero host awake.
+      return false;
     },
   });
 }
@@ -66,8 +72,10 @@ export function useRunDetail(repositoryId: string, runNumber: number | undefined
     queryFn: () => api<{ data: RunDetail }>(`${repo(repositoryId)}/pipeline-runs/${runNumber}`),
     select: (r) => r.data,
     enabled: Number.isFinite(runNumber),
-    refetchInterval: (query) =>
-      (query.state.data as { data?: RunDetail } | undefined)?.data?.run.status === 'running' ? 10_000 : false,
+    refetchInterval: (query) => {
+      const status = (query.state.data as { data?: RunDetail } | undefined)?.data?.run.status;
+      return status === 'running' || status === 'queued' || status === 'blocked' ? 5_000 : false;
+    },
   });
 }
 
@@ -120,10 +128,12 @@ export function useFlakyTests(repositoryId: string) {
         data: FlakyTestRow[];
         stats: {
           total: number;
+          otherFailing?: number;
           quarantined: number;
           worstFlakeRate: number | null;
           estimatedWastedMs: number;
           medianPipelineMs: number;
+          thresholds?: { minRuns: number; minFlakeRate: number; minBranches: number };
         };
       }>(`${repo(repositoryId)}/flaky-tests`),
   });

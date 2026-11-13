@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { getDb, schema, eq, desc, repositoryIntegrations, repositoryInvestigations } from '@codelens/db';
 import { github, repoPath } from '../services/github-client';
+import { openPullRequest } from '../services/pull-requests';
 import { getRepository, startIndex } from '../services/repository-sync';
 import { requireUser, fail, connection, seal, unseal, hash, appOrigin } from '../services/identity';
 import { deliveryEvidence } from '../services/delivery';
@@ -310,90 +311,19 @@ deliveryRoutes.post('/repositories/:id/changes/publish', async (c) => {
     size += Buffer.byteLength(f.content);
   }
   if (size > 500000) throw fail('Keep reviewed changes below 500 KB.');
-  const prefix = repoPath(repo),
-    digest = hash(JSON.stringify(body.files)).slice(0, 12),
+  const digest = hash(JSON.stringify(body.files)).slice(0, 12),
     branch = `codelens/change-${body.requestId}-${digest}`;
-  const existingPr = await github(
-    `${prefix}/pulls?state=all&head=${encodeURIComponent(repo.owner + ':' + branch)}`,
-    user,
-  );
-  if (existingPr.length) return c.json({ data: { url: existingPr[0].html_url, branch, reused: true } });
-  const base = await github(`${prefix}/git/ref/heads/${encodeURIComponent(body.baseBranch)}`, user);
-  if (base.object.sha !== body.expectedHead)
-    throw fail(
-      'The base branch changed on GitHub. Refresh it and review the changes again before publishing.',
-      409,
-    );
-  const commit = await github(`${prefix}/git/commits/${base.object.sha}`, user);
-  let ref: any;
-  try {
-    ref = await github(`${prefix}/git/ref/heads/${encodeURIComponent(branch)}`, user);
-  } catch (e) {
-    if ((e as any).status !== 404) throw e;
-  }
-  if (!ref) {
-    // Walk only the reviewed paths; preserve executable bits and refuse symlink/submodule replacements.
-    const trees = new Map<string, any[]>();
-    const fileMode = async (filePath: string) => {
-      let treeSha = commit.tree.sha;
-      const segments = filePath.split('/');
-      for (let i = 0; i < segments.length; i++) {
-        if (!trees.has(treeSha)) {
-          const tree = await github(`${prefix}/git/trees/${treeSha}`, user);
-          if (tree.truncated || !Array.isArray(tree.tree))
-            throw fail('GitHub could not provide the full directory for review.');
-          trees.set(treeSha, tree.tree);
-        }
-        const entry = trees.get(treeSha)!.find((item: any) => item.path === segments[i]);
-        if (!entry) return '100644';
-        if (i === segments.length - 1) {
-          if (entry.type !== 'blob' || !['100644', '100755'].includes(entry.mode))
-            throw fail(
-              'Only regular source files can be replaced. Symlinks, directories and submodules require a local checkout.',
-            );
-          return entry.mode;
-        }
-        if (entry.type !== 'tree') throw fail('A parent path is not a directory.');
-        treeSha = entry.sha;
-      }
-      return '100644';
-    };
-    const entries = [];
-    for (const file of body.files)
-      entries.push({ path: file.path, mode: await fileMode(file.path), type: 'blob', content: file.content });
-    const tree = await github(`${prefix}/git/trees`, user, {
-      method: 'POST',
-      body: JSON.stringify({
-        base_tree: commit.tree.sha,
-        tree: entries,
-      }),
-    });
-    const next = await github(`${prefix}/git/commits`, user, {
-      method: 'POST',
-      body: JSON.stringify({
-        message: `${body.title}\n\nCodeLens reviewed change ${body.requestId} (${digest})`,
-        tree: tree.sha,
-        parents: [base.object.sha],
-      }),
-    });
-    await github(`${prefix}/git/refs`, user, {
-      method: 'POST',
-      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: next.sha }),
-    });
-  } else {
-    const existing = await github(`${prefix}/git/commits/${ref.object.sha}`, user);
-    if (!existing.message.includes(`CodeLens reviewed change ${body.requestId} (${digest})`))
-      throw fail('The generated branch already contains unrelated work.', 409);
-  }
-  const pr = await github(`${prefix}/pulls`, user, {
-    method: 'POST',
-    body: JSON.stringify({
-      title: body.title,
-      head: branch,
-      base: body.baseBranch,
-      body: 'Reviewed changes prepared in CodeLens. Inspect the diff and required CI checks before merging.',
-      draft: true,
-    }),
+  const pr = await openPullRequest(repo, user, {
+    baseBranch: body.baseBranch,
+    expectedHead: body.expectedHead,
+    branch,
+    title: body.title,
+    body: 'Reviewed changes prepared in CodeLens. Inspect the diff and required CI checks before merging.',
+    commitMessage: body.title,
+    marker: `CodeLens reviewed change ${body.requestId} (${digest})`,
+    files: body.files,
+    draft: true,
   });
-  return c.json({ data: { url: pr.html_url, branch, number: pr.number } }, 201);
+  if (pr.reused) return c.json({ data: { url: pr.url, branch, reused: true } });
+  return c.json({ data: { url: pr.url, branch, number: pr.number } }, 201);
 });

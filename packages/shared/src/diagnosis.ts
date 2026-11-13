@@ -353,11 +353,20 @@ function excerpt(log: string, index: number): string {
 // ============================================================
 
 /** A test failing at a low rate across many branches is infrastructure noise. */
-const FLAKE_RATE_FLOOR = 0.04;
+export const FLAKE_RATE_FLOOR = 0.04;
 /** Below this many observations the flake rate is not yet trustworthy. */
-const MIN_RUNS_FOR_FLAKE = 8;
+export const MIN_RUNS_FOR_FLAKE = 8;
 /** Failing on this many distinct branches means it is not about your diff. */
-const CROSS_BRANCH_THRESHOLD = 3;
+export const CROSS_BRANCH_THRESHOLD = 3;
+
+/** Whether a test's history meets the bar for calling it a known flake. */
+export function isKnownFlake(t: { runCount: number; flakeRate: number; distinctBranches: number }): boolean {
+  return (
+    t.runCount >= MIN_RUNS_FOR_FLAKE &&
+    t.flakeRate >= FLAKE_RATE_FLOOR &&
+    t.distinctBranches >= CROSS_BRANCH_THRESHOLD
+  );
+}
 
 function readTestHistory(context: FailureContext): DiagnosisSignal[] {
   const tests = context.history.failingTests ?? [];

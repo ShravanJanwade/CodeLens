@@ -46,6 +46,8 @@ const DEFAULT_LIVE_EXAMPLE = 'ShravanJanwade/northwind-commerce';
 
 const MIN_SYNC_INTERVAL_MS = 60_000;
 const MAX_RUNS_PER_SYNC = 60;
+/** While a run is in progress, a visit catches up this often instead. */
+const ACTIVE_SYNC_INTERVAL_MS = 8_000;
 const LOG_TAIL_CHARS = 48_000;
 const MAX_FILES_CHANGED = 300;
 
@@ -164,6 +166,7 @@ export interface GhRun {
   triggering_actor?: { login: string } | null;
   head_commit?: { message: string; author?: { name: string } | null } | null;
   pull_requests?: { number: number }[];
+  display_title?: string;
 }
 
 export interface GhJob {
@@ -252,7 +255,7 @@ export function stageKind(name: string, environment: string | null): StageKind {
   if (environment || /\bdeploy|\bpromote|\brelease to\b/.test(text)) return 'deploy';
   if (/rollback|roll back/.test(text)) return 'rollback';
   if (/approv/.test(text)) return 'approval';
-  if (/smoke|verify|health|check production|e2e|synthetic/.test(text)) return 'verify';
+  if (/smoke|verify|health|check production|e2e|synthetic|\bbake\b|\bsoak/.test(text)) return 'verify';
   if (/test|spec/.test(text)) return 'test';
   if (/codeql|scan|audit|security|sast|vulnerab/.test(text)) return 'scan';
   if (/package|bundle|artifact|docker|image|container/.test(text)) return 'package';
@@ -375,6 +378,18 @@ export function stageStatus(job: Pick<GhJob, 'status' | 'conclusion'>): StageSta
     default:
       return 'failed';
   }
+}
+
+/**
+ * A manual run that deploys one environment at a chosen commit, as the
+ * run title CodeLens's redeploy convention sets: "Deploy <target> at <sha>".
+ */
+export function redeployOf(
+  run: Pick<GhRun, 'event' | 'display_title'>,
+): { target: string; sha: string } | null {
+  if (run.event !== 'workflow_dispatch') return null;
+  const match = /^Deploy ([\w.-]+) at ([0-9a-f]{40})$/.exec(run.display_title?.trim() ?? '');
+  return match && match[1] !== 'all' ? { target: match[1], sha: match[2] } : null;
 }
 
 function trigger(event: string): RunRow['trigger'] {
@@ -528,6 +543,8 @@ export interface SyncResult {
   failuresDiagnosed: number;
   logsFetched: number;
   logsAvailable: boolean;
+  /** Runs queued, running or waiting at a gate when the sync finished. */
+  activeRuns?: number;
 }
 
 interface SyncState {
@@ -580,7 +597,8 @@ export function requestSync(repository: Repository, { force = false } = {}): voi
   const state = states.get(repository.id);
   if (state?.running) return;
   const last = lastAttempt.get(repository.id) ?? 0;
-  if (!force && Date.now() - last < MIN_SYNC_INTERVAL_MS) return;
+  const interval = state?.result?.activeRuns ? ACTIVE_SYNC_INTERVAL_MS : MIN_SYNC_INTERVAL_MS;
+  if (!force && Date.now() - last < interval) return;
   lastAttempt.set(repository.id, Date.now());
   const next: SyncState = {
     running: true,
@@ -735,9 +753,37 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
   };
 
   const ingestedFailures: string[] = [];
+  // Read once per commit: a bake stage takes its length from the deploy
+  // settings of the environment it follows.
+  const settingsCache = new Map<string, Record<string, unknown> | null>();
+  const settingsOf = async (environment: string, sha: string) => {
+    if (!config.deployConfig?.includes('{environment}')) return null;
+    const path = config.deployConfig.replace('{environment}', environment);
+    const key = `${path}@${sha}`;
+    if (!settingsCache.has(key)) {
+      const text = await access.file(repository.fullName, path, sha).catch(() => null);
+      try {
+        settingsCache.set(key, text ? (JSON.parse(text) as Record<string, unknown>) : null);
+      } catch {
+        settingsCache.set(key, null);
+      }
+    }
+    return settingsCache.get(key)!;
+  };
+
   // Oldest first, so "previous run on this branch" is already stored.
   for (const run of pending.reverse()) {
     const runId = `${repository.id}:run:${run.id}`;
+    // A redeploy ships the commit it names, not the head of its branch.
+    const redeploy = redeployOf(run);
+    const deployedSha = redeploy?.sha ?? run.head_sha;
+    let redeployMessage: string | null = null;
+    if (redeploy) {
+      const commit = await access
+        .json<{ commit?: { message?: string } }>(`${repoPath}/commits/${redeploy.sha}`)
+        .catch(() => null);
+      redeployMessage = commit?.commit?.message?.split('\n')[0] ?? null;
+    }
     const jobs = (
       await access.json<{ jobs: GhJob[] }>(
         `${repoPath}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`,
@@ -760,14 +806,51 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
           timedOut.set(job.id, annotations);
       }
     }
-    const status: RunStatus = timedOut.size ? 'failed' : runStatus(run);
+    // A deploy a reviewer rejected at its environment gate also ends
+    // "failure", without running a step. That was a decision, not a fault.
+    const rejected = new Map<string, string>();
+    const neverStarted = jobs.filter(
+      (j) =>
+        j.conclusion === 'failure' &&
+        !(j.steps ?? []).some((s) => s.conclusion) &&
+        plan.get(j.id)?.environment,
+    );
+    if (neverStarted.length) {
+      const reviews = await access
+        .json<
+          { state: string; comment?: string; user?: { login: string }; environments?: { name: string }[] }[]
+        >(`${repoPath}/actions/runs/${run.id}/approvals`)
+        .catch(() => []);
+      for (const review of reviews.filter((r) => r.state === 'rejected'))
+        for (const env of review.environments ?? [])
+          rejected.set(
+            env.name,
+            `Deployment to ${env.name} was rejected${review.user ? ` by @${review.user.login}` : ''}${review.comment ? `: ${review.comment}` : '.'}`,
+          );
+    }
+    const isRejected = (job: GhJob) =>
+      neverStarted.includes(job) && rejected.has(plan.get(job.id)?.environment ?? '');
+    let status: RunStatus = timedOut.size ? 'failed' : runStatus(run);
+    if (
+      status === 'failed' &&
+      rejected.size &&
+      jobs.every((j) => j.conclusion !== 'failure' || isRejected(j))
+    )
+      status = 'cancelled';
 
     const stageRows: StageRow[] = [];
     for (const job of jobs) {
       const planned = plan.get(job.id)!;
-      const jobStatus: StageStatus = timedOut.has(job.id) ? 'failed' : stageStatus(job);
-      let log = stepSummary(job);
-      if (jobStatus === 'failed' || (jobStatus === 'cancelled' && status === 'failed')) {
+      const jobStatus: StageStatus = timedOut.has(job.id)
+        ? 'failed'
+        : isRejected(job)
+          ? 'cancelled'
+          : stageStatus(job);
+      let log = isRejected(job) ? rejected.get(planned.environment!)! : stepSummary(job);
+      if (
+        !isRejected(job) &&
+        (jobStatus === 'failed' || (jobStatus === 'cancelled' && status === 'failed'))
+      ) {
         const raw = access.authenticated
           ? await access.text(`${repoPath}/actions/jobs/${job.id}/logs`)
           : null;
@@ -789,6 +872,13 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
       }
       const tests = planned.kind === 'test' ? testCountsFrom(log) : null;
       const failedStep = job.steps?.find((step) => step.conclusion === 'failure')?.name;
+      let bakeMinutes: number | null = null;
+      if (planned.kind === 'verify' && /\bbake\b|\bsoak/i.test(planned.name)) {
+        const upstream = [...plan.values()].find((p) => planned.dependsOn.includes(p.key) && p.environment);
+        const settings = upstream?.environment ? await settingsOf(upstream.environment, deployedSha) : null;
+        const value = Number(settings?.bakeMinutes);
+        bakeMinutes = settings && Number.isFinite(value) && value >= 0 ? value : null;
+      }
       stageRows.push({
         id: `${runId}:${planned.key}`,
         runId,
@@ -815,6 +905,7 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
           steps: job.steps?.length ?? 0,
           ...(failedStep ? { failedStep } : {}),
           ...(tests ? { testsPassed: tests.passed, testsFailed: tests.failed } : {}),
+          ...(bakeMinutes !== null ? { bakeMinutes } : {}),
           githubJobId: job.id,
         }),
         log,
@@ -836,7 +927,7 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
       } = {};
       try {
         const commit = await access.json<{ files?: { filename: string }[] }>(
-          `${repoPath}/commits/${run.head_sha}`,
+          `${repoPath}/commits/${deployedSha}`,
         );
         evidence.filesChanged = (commit.files ?? []).slice(0, MAX_FILES_CHANGED).map((file) => file.filename);
       } catch (error) {
@@ -846,7 +937,7 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
         access,
         repository.fullName,
         config,
-        run.head_sha,
+        deployedSha,
         broken,
         stageRows,
         plan,
@@ -877,8 +968,9 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
       externalUrl: run.html_url,
       branch: run.head_branch ?? 'detached',
       targetTier,
-      commitSha: run.head_sha,
-      commitMessage: (run.head_commit?.message ?? '').split('\n')[0] || '(no message)',
+      commitSha: deployedSha,
+      commitMessage: redeployMessage ?? ((run.head_commit?.message ?? '').split('\n')[0] || '(no message)'),
+      deployTarget: redeploy?.target ?? null,
       commitAuthor: run.head_commit?.author?.name ?? run.actor?.login ?? 'unknown',
       trigger: trigger(run.event),
       pullRequestNumber: run.pull_requests?.[0]?.number ?? null,
@@ -916,13 +1008,16 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
       await tx.delete(pipelineStages).where(eq(pipelineStages.runId, runId));
       if (stageRows.length) await tx.insert(pipelineStages).values(stageRows);
       for (const stage of stageRows) {
-        if (stage.kind !== 'deploy' || !stage.environmentId || stage.status === 'skipped') continue;
+        if (stage.kind !== 'deploy' || !stage.environmentId) continue;
+        // A deploy waiting at its gate has not started: the environment
+        // still runs its previous release.
+        if (stage.status === 'skipped' || stage.status === 'blocked' || stage.status === 'queued') continue;
         await tx.insert(environmentDeployments).values({
           id: `${stage.id}:deploy`,
           environmentId: stage.environmentId,
           runId,
-          version: run.head_sha.slice(0, 7),
-          commitSha: run.head_sha,
+          version: deployedSha.slice(0, 7),
+          commitSha: deployedSha,
           strategy: 'recreate',
           status: stage.status === 'success' ? 'live' : stage.status === 'failed' ? 'failed' : 'deploying',
           healthCheck:
@@ -951,6 +1046,16 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
     .where(and(eq(pipelineRuns.repositoryId, repository.id), eq(pipelineRuns.status, 'failed')));
   const toDiagnose = new Set([...ingestedFailures, ...failed.map((row) => row.id)]);
   result.failuresDiagnosed = await diagnoseRuns(repository, [...toDiagnose], history);
+  const active = await db
+    .select({ id: pipelineRuns.id })
+    .from(pipelineRuns)
+    .where(
+      and(
+        eq(pipelineRuns.repositoryId, repository.id),
+        inArray(pipelineRuns.status, ['queued', 'running', 'blocked']),
+      ),
+    );
+  result.activeRuns = active.length;
   return result;
 }
 

@@ -46,6 +46,8 @@ export interface RunSummary {
   queuedMs: number | null;
   actor: string;
   failedStage: string | null;
+  /** Set when the run redeployed one environment at a chosen commit. */
+  deployTarget?: string | null;
   diagnosis: DiagnosisBadge | null;
 }
 
@@ -69,7 +71,25 @@ export interface EnvironmentRow {
   latencyP95: number | null;
   requestsPerMin: number | null;
   replicas: number | null;
+  /** The run that put the current release there. */
+  currentRun?: { runNumber: number; displayNumber: number; commitMessage: string; pipeline: string } | null;
+  /** The most recent deploy attempt, which may not be the current release. */
+  latestDeploy?: { status: string; commitShort: string; startedAt: string } | null;
 }
+
+export interface ActiveStage {
+  key: string;
+  name: string;
+  kind: StageKind;
+  status: StageStatus;
+  sequence: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  environment: string | null;
+  bakeMinutes: number | null;
+}
+
+export type ActiveRun = RunSummary & { stages: ActiveStage[] };
 
 export interface DeliveryOverview {
   repository: {
@@ -91,6 +111,8 @@ export interface DeliveryOverview {
   }[];
   environments: EnvironmentRow[];
   runs: RunSummary[];
+  /** Runs queued, running or waiting at a gate, with their stages. */
+  activeRuns?: ActiveRun[];
   stats: {
     windowRuns: number;
     successRate: number | null;
@@ -253,6 +275,69 @@ export interface FlakyTestRow {
   quarantined: boolean;
   firstSeenAt: string;
   lastFailedAt: string | null;
+  /** Whether the history meets the classifier's bar for a known flake. */
+  status?: 'flaky' | 'not-flaky';
+  reason?: string | null;
+}
+
+// ---- Actions ---------------------------------------------------------
+
+export interface ActionAccess {
+  signedIn: boolean;
+  github: { login: string } | null;
+  permission: 'admin' | 'maintain' | 'write' | 'triage' | 'read' | 'none';
+  canAct: boolean;
+  reason: string | null;
+}
+
+export interface ActionRecord {
+  id: string;
+  kind: 'rerun-failed' | 'rerun-all' | 'rerun-job' | 'redeploy' | 'approve' | 'reject' | 'fix-pr';
+  target: string;
+  runId: string | null;
+  environment: string | null;
+  detail: Record<string, unknown>;
+  outcome: 'requested' | 'failed';
+  message: string | null;
+  url: string | null;
+  githubLogin: string;
+  createdAt: string;
+}
+
+export interface ActionResult {
+  message: string;
+  url: string | null;
+  reused?: boolean;
+}
+
+export interface PendingGate {
+  environment: string;
+  environmentId: number;
+  waitTimerMinutes: number;
+  waitTimerStartedAt: string | null;
+  canApprove: boolean;
+  reviewers: string[];
+}
+
+export interface Release {
+  commitSha: string;
+  commitShort: string;
+  commitMessage: string | null;
+  deployedAt: string;
+  actor: string;
+  current: boolean;
+  run: { runNumber: number; displayNumber: number; pipeline: string; pipelineFile: string | null } | null;
+}
+
+export interface FixPreview {
+  kind: 'config-drift' | 'quarantine-test';
+  title: string;
+  summary: string;
+  body: string;
+  branch: string;
+  baseBranch: string;
+  baseSha: string;
+  changes: { path: string; before: string; after: string }[];
 }
 
 export interface BenchmarkReport {

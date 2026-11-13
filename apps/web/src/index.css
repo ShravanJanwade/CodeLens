@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 /* ============================================================
-   CodeLens Platform — Global Styles
-   Dark professional developer-tool aesthetic
+   CodeLens — Tailwind layer for the older workspace pages.
+   Colours come from the same palette as styles/tokens.css.
    ============================================================ */
 
 @layer base {
@@ -83,8 +83,7 @@
   }
 
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-hover active:scale-[0.98]
-           shadow-lg shadow-accent/20;
+    @apply btn bg-accent text-white hover:bg-accent-hover;
   }
 
   .btn-secondary {
@@ -119,15 +118,15 @@
   }
 
   .status-dot-healthy {
-    @apply status-dot bg-status-healthy shadow-[0_0_6px_rgba(34,197,94,0.4)];
+    @apply status-dot bg-status-healthy;
   }
 
   .status-dot-warning {
-    @apply status-dot bg-status-warning shadow-[0_0_6px_rgba(234,179,8,0.4)];
+    @apply status-dot bg-status-warning;
   }
 
   .status-dot-critical {
-    @apply status-dot bg-status-critical shadow-[0_0_6px_rgba(239,68,68,0.4)] animate-pulse-subtle;
+    @apply status-dot bg-status-critical;
   }
 
   .status-dot-unknown {
@@ -159,21 +158,13 @@
 }
 
 @layer utilities {
-  /* Gradient text */
+  /* Kept for older markup: plain text and no glow, by design. */
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-blue-400;
+    color: var(--c-ink);
   }
 
-  /* Subtle glow effects */
-  .glow-accent {
-    box-shadow:
-      0 0 20px rgba(59, 130, 246, 0.1),
-      0 0 60px rgba(59, 130, 246, 0.05);
-  }
-
+  .glow-accent,
   .glow-critical {
-    box-shadow:
-      0 0 20px rgba(239, 68, 68, 0.15),
-      0 0 60px rgba(239, 68, 68, 0.05);
+    box-shadow: none;
   }
 }
