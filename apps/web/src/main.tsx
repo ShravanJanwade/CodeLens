@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import { ToastProvider } from './components/overlay';
 // Legacy stylesheets load first so the design system below wins any
 // selector they share. Order here is load-bearing.
 import './index.css';
@@ -32,7 +33,9 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppErrorBoundary>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </AppErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>

@@ -25,10 +25,11 @@ import {
   Activity,
 } from 'lucide-react';
 import { useAuth } from '../features/auth/Auth';
-import { DEMO_REPO } from '../features/delivery/types';
+import { DEMO_REPO, LIVE_REPO } from '../features/delivery/types';
+import { Brand } from '../components/ui';
 
 const DEMO_PATH = `/r/${DEMO_REPO}/delivery`;
-const HERO_RUN = `/r/${DEMO_REPO}/runs/2184`;
+const LIVE_PATH = `/r/${LIVE_REPO}/delivery`;
 
 /**
  * Marketing page.
@@ -59,14 +60,7 @@ export default function Landing() {
     <div className="lp">
       <nav className={`lp-nav ${stuck ? 'is-stuck' : ''}`}>
         <div className="lp-nav-inner">
-          <Link to="/" className="brand">
-            <span className="brand-mark">
-              <Code2 size={16} />
-            </span>
-            <span>
-              CodeLens<span className="brand-period">.</span>
-            </span>
-          </Link>
+          <Brand />
           <div className="lp-nav-links">
             <a href="#problem">Problem</a>
             <a href="#how">How it works</a>
@@ -77,8 +71,8 @@ export default function Landing() {
             <Link className="btn btn-ghost btn-sm" to={signedIn ? '/repositories' : '/login'}>
               {signedIn ? 'Workspace' : 'Sign in'}
             </Link>
-            <Link className="btn btn-primary btn-sm" to={DEMO_PATH}>
-              Open live demo <ArrowUpRight size={14} />
+            <Link className="btn btn-primary btn-sm" to={LIVE_PATH}>
+              Open the live repository <ArrowUpRight size={14} />
             </Link>
           </div>
         </div>
@@ -90,37 +84,29 @@ export default function Landing() {
       <header className="lp-hero">
         <div className="lp-wrap lp-hero-grid">
           <div>
-            <span className="lp-pill">
-              <b>LIVE</b> No sign-in required
-            </span>
+            <p className="lp-eyebrow">Root-cause analysis for CI/CD</p>
             <h1>
               Your pipeline is red.
               <br />
-              <em>Know why in one screen.</em>
+              <span className="lp-h1-quiet">Know why, and fix it from one screen.</span>
             </h1>
             <p className="lp-lede">
-              CodeLens reads the stage logs, the run history and the deploy topology of a failed CI/CD run and
-              tells you the actual root cause —{' '}
-              <strong>which region, which branch, which commit, which test</strong> — plus whether your change
-              is even to blame.
+              CodeLens reads the logs, the run history and the deploy topology of a failed GitHub Actions run,
+              and tells you the root cause: which region, which commit, which test, and whether your change is
+              to blame. Then it lets you act on it: re-run, roll back a region, approve a release, or open the
+              fix as a pull request.
             </p>
             <div className="lp-cta">
-              <Link className="btn btn-primary btn-lg" to={DEMO_PATH}>
-                Explore the live demo <ArrowRight size={17} />
+              <Link className="btn btn-primary btn-lg" to={LIVE_PATH}>
+                See it on a real repository <ArrowRight size={16} />
               </Link>
-              <Link className="btn btn-outline btn-lg" to={HERO_RUN}>
-                See a real diagnosis <ChevronRight size={16} />
+              <Link className="btn btn-outline btn-lg" to={DEMO_PATH}>
+                Recorded demo
               </Link>
             </div>
             <p className="lp-cta-note">
-              <BadgeCheck size={14} />
-              Seeded five-service monorepo · 3 production regions · 41 pipeline runs · every verdict computed
-              live
-            </p>
-            <p className="lp-cta-note">
-              <Activity size={14} />
-              Or open the <Link to="/live">live example</Link>: a real repository whose GitHub Actions runs,
-              logs and Azure deploys CodeLens reads as you watch.
+              No sign-in needed to look around. Maintainers sign in with GitHub to act, and every action runs
+              as them.
             </p>
           </div>
 
@@ -132,19 +118,17 @@ export default function Landing() {
                 <i />
                 <i />
               </span>
-              <span className="lp-mock-path">northwind/commerce-platform · run #2184 · main</span>
+              <span className="lp-mock-path">northwind-commerce · Deploy #7 · main</span>
             </div>
             <div className="lp-mock-body">
               <div className="lp-mini">
-                <span className="lp-mini-node ok">build</span>
-                <ChevronRight size={13} className="lp-mini-arrow" />
                 <span className="lp-mini-node ok">tests</span>
                 <ChevronRight size={13} className="lp-mini-arrow" />
-                <span className="lp-mini-node ok">image</span>
+                <span className="lp-mini-node ok">staging</span>
                 <ChevronRight size={13} className="lp-mini-arrow" />
-                <span className="lp-mini-node ok">approve</span>
+                <span className="lp-mini-node ok">bake</span>
                 <ChevronRight size={13} className="lp-mini-arrow" />
-                <span className="lp-mini-node bad">deploy</span>
+                <span className="lp-mini-node bad">production</span>
                 <ChevronRight size={13} className="lp-mini-arrow" />
                 <span className="lp-mini-node idle">verify</span>
               </div>
@@ -152,33 +136,31 @@ export default function Landing() {
               <div className="lp-regions">
                 <div className="lp-region">
                   <i className="dot dot-pass" />
-                  <code>us-east-1</code>
-                  <span>deployed 2024.9.14</span>
+                  <code>westus2</code>
+                  <span>deployed 275dfa0</span>
                 </div>
                 <div className="lp-region">
                   <i className="dot dot-pass" />
-                  <code>eu-west-1</code>
-                  <span>deployed 2024.9.14</span>
+                  <code>canadacentral</code>
+                  <span>deployed 275dfa0</span>
                 </div>
                 <div className="lp-region bad">
                   <i className="dot dot-fail" />
-                  <code>ap-southeast-2</code>
-                  <span>0/6 replicas ready</span>
+                  <code>francecentral</code>
+                  <span>missing a deploy setting</span>
                 </div>
               </div>
 
               <div className="lp-verdict">
-                <div className="lp-verdict-top">
-                  <Globe2 size={13} /> CONFIG DRIFT · 97% CONFIDENCE
-                </div>
+                <div className="lp-verdict-top">Config drift · 90% confidence</div>
                 <p>
-                  The same artifact deployed cleanly to two regions.{' '}
-                  <code className="code-inline">LEDGER_WEBHOOK_SECRET</code> is absent in ap-southeast-2, so
-                  replicas never passed readiness. <strong>Do not revert the build</strong> — reconcile the
-                  target.
+                  The same build deployed cleanly to two regions.{' '}
+                  <code className="code-inline">catalogCacheSeconds</code> is missing for production-eu only.{' '}
+                  <strong>Do not revert the build</strong>: fix the configuration.
                 </p>
-                <div className="lp-verdict-foot">
-                  <Cpu size={11} /> classified from 4 signals in under 2ms · no model call
+                <div className="lp-verdict-actions">
+                  <span className="lp-fake-btn is-primary">Fix with a pull request</span>
+                  <span className="lp-fake-btn">Re-run production-eu</span>
                 </div>
               </div>
             </div>
@@ -632,20 +614,20 @@ export default function Landing() {
           ============================================================ */}
       <section className="lp-close">
         <div className="lp-wrap">
-          <h2>See it on a real failure.</h2>
+          <h2>See it on a real repository.</h2>
           <p>
-            The demo opens on run #2184 &mdash; a production deploy that succeeded in two regions and failed
-            in the third. No account, no setup.
+            northwind-commerce is a real TypeScript monorepo with GitHub Actions deploying to three Azure
+            regions. Its runs, logs and releases are read live, and every red build has a verdict.
           </p>
           <div className="lp-cta">
-            <Link className="btn btn-primary btn-lg" to={HERO_RUN}>
-              Open the diagnosis <ArrowRight size={17} />
+            <Link className="btn btn-primary btn-lg" to={LIVE_PATH}>
+              Open the live repository <ArrowRight size={16} />
             </Link>
-            <Link className="btn btn-outline btn-lg" to="/live">
-              Watch a real repository <Activity size={16} />
+            <Link className="btn btn-outline btn-lg" to={DEMO_PATH}>
+              Recorded demo
             </Link>
-            <Link className="btn btn-outline btn-lg" to={signedIn ? '/repositories' : '/login?mode=signup'}>
-              {signedIn ? 'Connect a repository' : 'Create a workspace'}
+            <Link className="btn btn-ghost btn-lg" to={signedIn ? '/repositories' : '/login?mode=signup'}>
+              {signedIn ? 'Connect a repository' : 'Use your own repository'}
             </Link>
           </div>
         </div>
@@ -653,18 +635,11 @@ export default function Landing() {
 
       <footer className="lp-footer">
         <div className="lp-footer-inner">
-          <Link to="/" className="brand">
-            <span className="brand-mark">
-              <Code2 size={15} />
-            </span>
-            <span>
-              CodeLens<span className="brand-period">.</span>
-            </span>
-          </Link>
+          <Brand />
           <span>Root-cause analysis for CI/CD pipelines.</span>
           <div className="lp-footer-links">
             <Link to={DEMO_PATH}>Demo</Link>
-            <Link to="/live">Live example</Link>
+            <Link to={LIVE_PATH}>Live repository</Link>
             <Link to="/benchmark">Benchmark</Link>
             <Link to="/documentation">Docs</Link>
             <Link to="/login">Sign in</Link>

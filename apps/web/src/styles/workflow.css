@@ -4,16 +4,16 @@
   justify-content: space-between;
   gap: 24px;
   padding: 24px;
-  border: 1px solid #345e53;
+  border: 1px solid var(--c-line-bright);
   border-radius: 12px;
-  background: linear-gradient(115deg, #172a27, #121b22);
+  background: var(--c-panel);
 }
 .workspace-next-step h2 {
   font-size: 21px;
   margin: 8px 0;
 }
 .workspace-next-step p {
-  color: #a4b3bf;
+  color: var(--c-ink-2);
   font-size: 13px;
   max-width: 700px;
   line-height: 1.7;
@@ -24,9 +24,9 @@
 .journey-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border: 1px solid #293540;
+  border: 1px solid var(--c-line-strong);
   border-radius: 10px;
-  background: #111820;
+  background: var(--c-panel-2);
   overflow: hidden;
   margin: 20px 0;
 }
@@ -36,14 +36,14 @@
   gap: 12px;
   text-align: left;
   padding: 16px 18px;
-  color: #9aaaba;
-  border-right: 1px solid #293540;
+  color: var(--c-ink-2);
+  border-right: 1px solid var(--c-line-strong);
 }
 .journey-strip > button:last-child {
   border-right: 0;
 }
 .journey-strip > button > span {
-  border: 1px solid #3b4753;
+  border: 1px solid var(--c-line-bright);
   border-radius: 50%;
   width: 27px;
   height: 27px;
@@ -55,7 +55,7 @@
 .journey-strip strong {
   font-size: 12px;
   display: block;
-  color: #d6e0e8;
+  color: var(--c-ink);
 }
 .journey-strip small {
   font-size: 10px;
@@ -63,14 +63,14 @@
   margin-top: 5px;
 }
 .journey-strip .current {
-  background: #17312b;
-  box-shadow: inset 0 -2px #67d8b1;
+  background: var(--c-line);
+  box-shadow: inset 0 -2px var(--c-brand-ink);
 }
 .journey-strip .current > span,
 .journey-strip .complete > span {
-  background: #67d8b1;
-  color: #10221c;
-  border-color: #67d8b1;
+  background: var(--c-brand-ink);
+  color: var(--c-panel-2);
+  border-color: var(--c-brand-ink);
 }
 .journey-strip button:disabled {
   opacity: 0.45;
@@ -78,7 +78,7 @@
 }
 .branch-toolbar summary {
   cursor: pointer;
-  color: #acbeca;
+  color: var(--c-ink-2);
   font-size: 12px;
 }
 .branch-toolbar[open] > summary {
@@ -102,7 +102,7 @@
   grid-template-columns: 220px minmax(0, 1fr);
   align-items: start;
   min-width: 0;
-  border: 1px solid #2c3642;
+  border: 1px solid var(--c-line-bright);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -111,7 +111,7 @@
   min-width: 0;
   max-height: 760px;
   overflow: auto;
-  border-right: 1px solid #2c3642;
+  border-right: 1px solid var(--c-line-bright);
 }
 .file-sidebar .search-field {
   min-width: 0;
@@ -121,12 +121,12 @@
   display: flex;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid #293540;
+  border-bottom: 1px solid var(--c-line-strong);
   font-size: 12px;
 }
 .tree-heading span {
   font-size: 10px;
-  color: #889aaa;
+  color: var(--c-ink-3);
 }
 .tree-item {
   display: flex;
@@ -136,7 +136,7 @@
   min-height: 33px;
   text-align: left;
   padding: 7px 10px;
-  color: #a9b8c8;
+  color: var(--c-ink-2);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -148,12 +148,12 @@
   flex-shrink: 0;
 }
 .tree-item:hover {
-  background: #1c2833;
+  background: var(--c-line);
 }
 .tree-item.active {
-  background: #1a3730;
-  color: #8eebc8;
-  box-shadow: inset 3px 0 #67d8b1;
+  background: var(--c-line);
+  color: var(--c-brand-ink);
+  box-shadow: inset 3px 0 var(--c-brand-ink);
 }
 .tree-chevron {
   transition: transform 0.15s;
@@ -165,7 +165,7 @@
   padding: 16px;
   font-size: 10px;
   line-height: 1.6;
-  color: #8496a8;
+  color: var(--c-ink-3);
 }
 .source-pane {
   min-width: 0;
@@ -187,7 +187,7 @@
 }
 .source-hint {
   font-size: 11px;
-  color: #8fa2b4;
+  color: var(--c-ink-3);
   padding: 0 14px 13px;
 }
 .code-workbench .source-lines {
@@ -197,15 +197,15 @@
 .source-line .line-number {
   display: block;
   user-select: none;
-  color: #77899d;
+  color: var(--c-ink-3);
   text-align: right;
   font-family: monospace;
   padding: 0 13px 0 7px;
   min-width: 48px;
 }
 .source-line .line-number:hover {
-  color: #89e8c4;
-  background: #21382f;
+  color: var(--c-brand-ink);
+  background: var(--c-line-strong);
 }
 .source-line code {
   white-space: pre;
@@ -215,11 +215,11 @@
 .source-symbols {
   padding: 15px;
   font-size: 12px;
-  border-top: 1px solid #283442;
+  border-top: 1px solid var(--c-line-strong);
 }
 .source-symbols summary {
   cursor: pointer;
-  color: #9cb1c5;
+  color: var(--c-ink-2);
 }
 .code-assistant {
   position: sticky;
@@ -236,9 +236,9 @@
   max-width: 960px;
   margin: 0 auto;
   padding: 24px;
-  border: 1px solid #2b3845;
+  border: 1px solid var(--c-line-bright);
   border-radius: 12px;
-  background: #111820;
+  background: var(--c-panel-2);
   min-width: 0;
 }
 .ask-workbench.compact {
@@ -255,15 +255,15 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  color: #dbe8ef;
+  color: var(--c-brand-ink);
 }
 .provider-pill {
-  background: #1b382f;
-  border: 1px solid #366151;
+  background: var(--c-line);
+  border: 1px solid var(--c-line-bright);
   border-radius: 20px;
   padding: 5px 9px;
   font-size: 10px;
-  color: #96e9c8;
+  color: var(--c-brand-ink);
 }
 .compact .assistant-heading {
   padding-right: 24px;
@@ -276,12 +276,12 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  background: #19232f;
-  border: 1px solid #303e4e;
+  background: var(--c-line);
+  border: 1px solid var(--c-line-bright);
   border-radius: 8px;
   padding: 12px;
   margin: 16px 0;
-  color: #c1d4e1;
+  color: var(--c-ink-2);
   font-size: 11px;
 }
 .context-chip > span {
@@ -291,7 +291,7 @@
 }
 .context-chip small {
   display: block;
-  color: #849bae;
+  color: var(--c-ink-3);
   font-size: 10px;
   margin-top: 4px;
 }
@@ -310,14 +310,14 @@
   text-align: left;
   min-height: 42px;
   padding: 12px;
-  background: #17212c;
-  border: 1px solid #304053;
+  background: var(--c-panel-3);
+  border: 1px solid var(--c-line-bright);
   border-radius: 8px;
-  color: #b5c7d8;
+  color: var(--c-ink-2);
 }
 .assistant-welcome .question-suggestions button:hover {
-  border-color: #64bc9e;
-  color: #e1fff2;
+  border-color: var(--c-brand-bright);
+  color: var(--c-ink);
 }
 .ask-workbench .conversation {
   max-height: 600px;
@@ -334,18 +334,18 @@
   margin: 12px 0;
   padding: 16px;
   line-height: 1.8;
-  background: #17212b;
-  border: 1px solid #2c3846;
+  background: var(--c-panel-3);
+  border: 1px solid var(--c-line-bright);
   border-radius: 9px;
 }
 .ask-workbench .message.user {
-  background: #182e29;
-  border-color: #294b40;
+  background: var(--c-line);
+  border-color: var(--c-line-bright);
 }
 .message-scope {
   display: block;
   font-size: 10px;
-  color: #91b6a7;
+  color: var(--c-ink-3);
   overflow-wrap: anywhere;
 }
 .answer-content p {
@@ -362,7 +362,7 @@
   margin: 12px 0;
 }
 .answer-content pre {
-  background: #0a1118;
+  background: var(--c-panel);
   padding: 14px;
   border-radius: 7px;
   overflow: auto;
@@ -372,7 +372,7 @@
 }
 .answer-content p code,
 .answer-content li code {
-  background: #233440;
+  background: var(--c-line-strong);
   padding: 2px 5px;
   border-radius: 4px;
   overflow-wrap: anywhere;
@@ -381,21 +381,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #a9d6c7;
+  color: var(--c-ink-2);
   font-size: 12px;
   padding: 14px;
 }
 .assistant-footnote {
   font-size: 10px;
-  color: #8094a8;
+  color: var(--c-ink-3);
   margin-top: 10px;
 }
 .ask-workbench .ask-form {
   display: flex;
   align-items: flex-end;
   padding: 10px;
-  background: #192530;
-  border: 1px solid #3b5261;
+  background: var(--c-line);
+  border: 1px solid var(--c-line-bright);
   border-radius: 10px;
 }
 .ask-workbench .ask-form textarea {
@@ -420,7 +420,7 @@
   gap: 18px;
 }
 .finding-intro > svg {
-  color: #69d7b2;
+  color: var(--c-brand-ink);
   flex-shrink: 0;
   margin-top: 7px;
 }
@@ -431,13 +431,13 @@
 .finding-location {
   display: block;
   font-size: 11px;
-  color: #9cb2c8;
+  color: var(--c-ink-2);
   margin: 15px 0;
   overflow-wrap: anywhere;
 }
 .finding-next {
-  background: #182430;
-  border-left: 2px solid #74c9ab;
+  background: var(--c-line);
+  border-left: 2px solid var(--c-brand-ink);
   padding: 12px 16px;
   margin: 18px 0;
   font-size: 12px;
@@ -451,8 +451,8 @@
   align-items: center;
   gap: 14px;
   padding: 20px;
-  background: #192d28;
-  border: 1px solid #335b4d;
+  background: var(--c-line);
+  border: 1px solid var(--c-line-bright);
   border-radius: 10px;
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -462,8 +462,8 @@
 }
 .next-action {
   padding: 23px;
-  background: #14241f;
-  border: 1px solid #2e5144;
+  background: var(--c-panel-3);
+  border: 1px solid var(--c-line-bright);
   border-radius: 10px;
   margin: 20px 0;
 }
@@ -474,7 +474,7 @@
 }
 .next-action p {
   font-size: 13px;
-  color: #a5bdb3;
+  color: var(--c-ink-2);
   line-height: 1.8;
   margin-bottom: 15px;
 }
@@ -495,24 +495,24 @@
   gap: 20px;
   text-align: left;
   padding: 18px;
-  border: 1px solid #304151;
+  border: 1px solid var(--c-line-bright);
   border-radius: 8px;
   margin: 12px 0;
 }
 .check-run-option small {
   display: block;
-  color: #8da3b6;
+  color: var(--c-ink-3);
   font-size: 10px;
   margin-top: 6px;
 }
 .check-run-option > span:last-child {
   margin-left: auto;
   font-size: 11px;
-  color: #7fdaba;
+  color: var(--c-brand-ink);
 }
 .check-run-option.active {
-  border-color: #65c3a3;
-  background: #152d25;
+  border-color: var(--c-brand-bright);
+  background: var(--c-panel-3);
 }
 .ci-step-list {
   list-style: none;
@@ -523,19 +523,19 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border-bottom: 1px solid #26323f;
+  border-bottom: 1px solid var(--c-line-strong);
   font-size: 12px;
 }
 .ci-step-list li > span:first-child {
-  color: #809ab0;
+  color: var(--c-ink-3);
 }
 .ci-step-list strong {
   flex: 1;
 }
 .preview-notice {
   padding: 10px 20px;
-  background: #183329;
-  color: #b5e3ce;
+  background: var(--c-line);
+  color: var(--c-brand-ink);
   font-size: 12px;
   display: flex;
   gap: 16px;
@@ -561,7 +561,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .journey-strip > button {
-    border-bottom: 1px solid #293540;
+    border-bottom: 1px solid var(--c-line-strong);
   }
   .workspace-next-step {
     display: block;
@@ -575,7 +575,7 @@
   .code-workbench .file-sidebar {
     max-height: 260px;
     border-right: 0;
-    border-bottom: 1px solid #2c3642;
+    border-bottom: 1px solid var(--c-line-bright);
   }
   .equal-columns {
     grid-template-columns: minmax(0, 1fr);

@@ -1,54 +1,42 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  CircleAlert,
-  Clock,
-  Cpu,
-  GitBranch,
-  GitCommit,
-  GitPullRequest,
-  Globe2,
-  Hash,
-  Rocket,
-  Server,
-  Timer,
-  User,
-  ExternalLink,
-} from 'lucide-react';
+import { ArrowLeft, ChevronDown, ExternalLink, GitBranch, Globe, RotateCcw } from 'lucide-react';
 import { useRunDetail } from './queries';
+import { useRerun } from './actions';
 import { DEMO_REPO } from './types';
-import { absolute, duration, relative, STATUS_LABEL, tone, TRIGGER_LABEL } from './format';
-import PipelineFlow from './PipelineFlow';
+import { absolute, duration, TRIGGER_LABEL } from './format';
+import PipelineFlow, { isBake } from './PipelineFlow';
 import DiagnosisPanel from './DiagnosisPanel';
+import FixDialog, { type FixRequest } from './FixDialog';
 import LogViewer from './LogViewer';
+import { ApprovalGate } from './Releases';
+import { ActionButton, Ago, Sha, StatusIcon, StatusPill, statusLabel, useAccessGate } from './ui';
+import { Menu, MenuItem } from '../../components/overlay';
 import { Loading, ErrorState } from '../../components/ui';
 
 /**
- * A single pipeline run: the DAG, the failing stage's log, and the
- * root cause.
- *
- * The layout follows the order a developer actually reads in: what
- * broke (flow), why (diagnosis), then the raw evidence (log). The
- * log is last on purpose -- it is the thing the product exists to
- * stop you having to read.
+ * One pipeline run, in the order a person reads it: what is happening
+ * or what broke, why, what to do about it, then the jobs and their logs.
  */
 export default function RunPage() {
   const params = useParams();
   const repositoryId = params.repoId ?? DEMO_REPO;
   const runNumber = Number(params.runNumber);
-
   const query = useRunDetail(repositoryId, runNumber);
+  const gate = useAccessGate(repositoryId);
+  const rerun = useRerun(repositoryId);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [fix, setFix] = useState<FixRequest | null>(null);
 
-  // Open on the interesting stage: the one that broke, or the one
-  // currently running. Landing on "Checkout" would waste the click.
+  // Open on the job that matters: the one that broke, is running or is waiting.
   useEffect(() => {
     if (selectedKey || !query.data) return;
     const stages = query.data.stages;
     const focus =
+      stages.find((s) => s.key === query.data!.diagnosis?.stageKey) ??
       stages.find((s) => s.status === 'failed') ??
       stages.find((s) => s.status === 'running') ??
+      stages.find((s) => s.status === 'blocked') ??
       stages[stages.length - 1];
     if (focus) setSelectedKey(focus.key);
   }, [query.data, selectedKey]);
@@ -58,150 +46,256 @@ export default function RunPage() {
     [query.data, selectedKey],
   );
 
-  if (query.isLoading) return <Loading label={`Loading run #${runNumber}…`} />;
+  if (query.isLoading) return <Loading label="Loading run…" />;
   if (query.error) return <ErrorState error={query.error} retry={() => query.refetch()} />;
   if (!query.data) return null;
 
   const { run, stages, diagnosis, deployments } = query.data;
   const evidence = diagnosis?.signals.filter((s) => s.source === 'log').map((s) => s.detail) ?? [];
+  const actionable = Boolean(run.externalUrl);
+  const finished = !['queued', 'running', 'blocked'].includes(run.status);
+  const repoFullName = run.externalUrl?.match(/github\.com\/([^/]+\/[^/]+)\//)?.[1] ?? null;
+  const bake = stages.find((s) => isBake(s));
+  const bakedMs =
+    bake?.startedAt && bake.completedAt ? Date.parse(bake.completedAt) - Date.parse(bake.startedAt) : null;
+  const rejected = stages.filter((s) => s.status === 'cancelled' && /was rejected/.test(s.log));
+  const failedStage = diagnosis ? stages.find((s) => s.key === diagnosis.stageKey) : null;
 
   return (
-    <div className="dl-page">
-      <header className="dl-head">
-        <div className="dl-head-main">
-          <Link className="link link-muted" to={`/r/${encodeURIComponent(repositoryId)}/delivery`}>
-            <ArrowLeft size={13} /> All runs
-          </Link>
-          <h1 style={{ marginTop: 10 }}>
-            <i className={`dot dot-${tone(run.status)}`} style={{ width: 10, height: 10 }} />
-            {run.commitMessage}
-          </h1>
-          <div className="row-wrap" style={{ marginTop: 12 }}>
-            <span className="badge badge-idle">
-              <Hash size={10} />
-              {run.displayNumber ?? run.runNumber}
-            </span>
+    <div className="page-stack">
+      <header className="run-head">
+        <Link className="back" to={`/r/${encodeURIComponent(repositoryId)}/delivery`}>
+          <ArrowLeft size={14} /> Delivery
+        </Link>
+        <div className="run-head-main">
+          <StatusIcon status={run.status} size={20} />
+          <div className="run-head-text">
+            <h1>
+              {run.deployTarget && <span className="run-kind">Redeploy {run.deployTarget}</span>}
+              {run.commitMessage}
+            </h1>
+            <div className="run-facts">
+              <StatusPill
+                status={run.status}
+                label={run.status === 'blocked' ? 'Waiting for approval' : undefined}
+              />
+              <span>
+                {run.pipeline} #{run.displayNumber ?? run.runNumber}
+              </span>
+              <span className="run-branch">
+                <GitBranch size={12} />
+                {run.branch}
+              </span>
+              <Sha sha={run.commitSha} repo={repoFullName} />
+              <span>{run.actor}</span>
+              <span>{TRIGGER_LABEL[run.trigger] ?? run.trigger}</span>
+              <span>
+                <Ago iso={run.startedAt} />
+                {run.durationMs ? ` · ${duration(run.durationMs)}` : ''}
+              </span>
+            </div>
+          </div>
+          <div className="page-actions">
             {run.externalUrl && (
-              <a className="tag-mono link" href={run.externalUrl} target="_blank" rel="noreferrer">
-                <ExternalLink size={10} /> View on GitHub
+              <a className="btn btn-ghost btn-sm" href={run.externalUrl} target="_blank" rel="noreferrer">
+                GitHub <ExternalLink size={13} />
               </a>
             )}
-            <span
-              className={`badge badge-${tone(run.status) === 'pass' ? 'pass' : tone(run.status) === 'fail' ? 'fail' : 'run'}`}
-            >
-              {STATUS_LABEL[run.status] ?? run.status}
-            </span>
-            <span className="tag-mono">
-              <GitBranch size={10} />
-              {run.branch}
-            </span>
-            <span className="tag-mono">
-              <GitCommit size={10} />
-              {run.commitShort}
-            </span>
-            {run.pullRequestNumber && (
-              <span className="tag-mono">
-                <GitPullRequest size={10} />#{run.pullRequestNumber}
-              </span>
+            {actionable && finished && (
+              <Menu
+                label={
+                  <>
+                    <RotateCcw size={14} /> Re-run <ChevronDown size={13} />
+                  </>
+                }
+                className="btn btn-secondary btn-sm"
+              >
+                {(close) => (
+                  <>
+                    <MenuItem
+                      label="Re-run failed jobs"
+                      hint="Only the jobs that failed, and what depends on them"
+                      disabled={run.status !== 'failed' && run.status !== 'cancelled'}
+                      onSelect={() => {
+                        close();
+                        gate.run(() => rerun.mutate({ runNumber: run.runNumber, mode: 'failed' }))();
+                      }}
+                    />
+                    <MenuItem
+                      label="Re-run all jobs"
+                      hint="The whole run again, at the same commit"
+                      onSelect={() => {
+                        close();
+                        gate.run(() => rerun.mutate({ runNumber: run.runNumber, mode: 'all' }))();
+                      }}
+                    />
+                  </>
+                )}
+              </Menu>
             )}
-            <span className="text-xs muted row-tight">
-              <User size={11} />
-              {run.commitAuthor}
-            </span>
-            <span className="text-xs muted row-tight">
-              <Clock size={11} />
-              {relative(run.startedAt)} · {duration(run.durationMs)}
-            </span>
-            <span className="text-xs muted">{TRIGGER_LABEL[run.trigger] ?? run.trigger}</span>
           </div>
-        </div>
-        <div className="dl-head-actions">
-          {run.targetTier !== 'none' && (
-            <span className="badge badge-brand">
-              <Rocket size={11} /> targets {run.targetTier}
-            </span>
-          )}
-          {run.pipelineFile && <span className="tag-mono">{run.pipelineFile}</span>}
         </div>
       </header>
 
-      {/* ---- Flow ---- */}
-      <PipelineFlow
-        stages={stages}
-        selectedKey={selectedKey}
-        onSelect={setSelectedKey}
-        blamedKey={diagnosis?.stageKey ?? null}
-      />
+      {run.status === 'blocked' && (
+        <div className="panel">
+          <ApprovalGate repositoryId={repositoryId} run={run} gate={gate} bakedMs={bakedMs} />
+        </div>
+      )}
 
-      {/* ---- Diagnosis ---- */}
+      {rejected.length > 0 && (
+        <div className="alert alert-info">
+          <StatusIcon status="cancelled" />
+          <div>
+            <strong>Stopped at the approval gate</strong>
+            {rejected.map((s) => (
+              <p key={s.key}>{s.log}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
       {diagnosis && (
         <DiagnosisPanel
           repositoryId={repositoryId}
-          runNumber={run.runNumber}
+          run={run}
           diagnosis={diagnosis}
-          onJumpToStage={setSelectedKey}
+          failedStageName={failedStage?.name ?? null}
+          gate={gate}
+          onFix={setFix}
+          onJumpToStage={(key) => {
+            setSelectedKey(key);
+            document.getElementById('job')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
         />
       )}
 
       {run.status === 'failed' && !diagnosis && (
         <div className="alert alert-warn">
-          <CircleAlert size={18} />
+          <StatusIcon status="failed" />
           <div>
-            <strong>No diagnosis stored for this run</strong>
-            <p>The classifier has not been run against it yet.</p>
+            <strong>Not diagnosed yet</strong>
+            <p>The classifier runs on the next sync, within a minute.</p>
           </div>
         </div>
       )}
 
-      {/* ---- Deployments ---- */}
-      {deployments.length > 0 && (
-        <section className="panel-flush">
-          <div className="panel-hd">
-            <Globe2 size={15} style={{ color: 'var(--c-ink-3)' }} />
-            <div>
-              <h2>What this run deployed</h2>
-              <p>One record per target, including anything that rolled back.</p>
+      <section className="section">
+        <div className="section-hd">
+          <h2>Jobs</h2>
+          <p>
+            {stages.length} jobs in {new Set(stages.map((s) => s.sequence)).size} stages
+            {run.pipelineFile ? (
+              <>
+                {' '}
+                · <span className="mono">{run.pipelineFile}</span>
+              </>
+            ) : null}
+          </p>
+        </div>
+        <div className="panel-flush">
+          <PipelineFlow
+            stages={stages}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
+            blamedKey={diagnosis?.stageKey ?? null}
+          />
+        </div>
+      </section>
+
+      {selected && (
+        <section className="section" id="job">
+          <div className="panel-flush">
+            <div className="job-hd">
+              <StatusIcon status={selected.status} />
+              <div className="job-title">
+                <h2>{selected.name}</h2>
+                <p>
+                  {statusLabel(selected.status)}
+                  {selected.durationMs !== null && ` · ${duration(selected.durationMs)}`}
+                  {selected.startedAt && ` · started ${absolute(selected.startedAt)}`}
+                  {selected.runnerLabel && ` · ${selected.runnerLabel}`}
+                  {selected.attempts > 1 && ` · attempt ${selected.attempts}`}
+                </p>
+              </div>
+              <div className="page-actions">
+                {selected.environment && (
+                  <span className="env-chip">
+                    <Globe size={12} /> {selected.environment.name} · {selected.environment.regionLabel}
+                  </span>
+                )}
+                {actionable && finished && selected.status !== 'skipped' && (
+                  <ActionButton
+                    gate={gate}
+                    busy={rerun.isPending && rerun.variables?.stageKey === selected.key}
+                    onClick={() =>
+                      rerun.mutate({ runNumber: run.runNumber, mode: 'job', stageKey: selected.key })
+                    }
+                  >
+                    Re-run job
+                  </ActionButton>
+                )}
+              </div>
             </div>
+            <LogViewer
+              log={selected.log}
+              stageName={selected.name}
+              evidence={selected.key === diagnosis?.stageKey ? evidence : []}
+            />
           </div>
-          <div className="table-wrap">
+        </section>
+      )}
+
+      {deployments.length > 0 && (
+        <section className="section">
+          <div className="section-hd">
+            <h2>Deployments</h2>
+            <p>One record per environment this run deployed to.</p>
+          </div>
+          <div className="panel-flush table-wrap">
             <table className="data">
               <thead>
                 <tr>
-                  <th>Target</th>
+                  <th>Environment</th>
                   <th>Region</th>
-                  <th>Version</th>
-                  <th>Strategy</th>
+                  <th>Release</th>
                   <th>Result</th>
-                  <th className="right">Health</th>
+                  <th className="right">Finished</th>
                 </tr>
               </thead>
               <tbody>
                 {deployments
                   .slice()
-                  .sort((a, b) => (a.environment?.region ?? '').localeCompare(b.environment?.region ?? ''))
+                  .sort((a, b) => (a.environment?.name ?? '').localeCompare(b.environment?.name ?? ''))
                   .map((d) => (
                     <tr key={d.id}>
                       <td>
                         <strong>{d.environment?.name ?? '—'}</strong>
                       </td>
+                      <td>{d.environment?.regionLabel ?? '—'}</td>
                       <td>
-                        <span className="tag-mono">{d.environment?.region ?? '—'}</span>
+                        <span className="sha">{d.commitShort}</span>
                       </td>
-                      <td className="num">
-                        {d.previousVersion && <span className="muted">{d.previousVersion} → </span>}
-                        {d.version}
-                      </td>
-                      <td>{d.strategy}</td>
                       <td>
-                        <span className={`badge badge-${tone(d.status)}`}>{d.status}</span>
-                        {d.rollbackReason && (
-                          <p className="text-xs muted" style={{ marginTop: 4, maxWidth: '38ch' }}>
-                            {d.rollbackReason}
-                          </p>
-                        )}
+                        <StatusPill
+                          status={
+                            d.status === 'failed'
+                              ? 'failed'
+                              : d.status === 'deploying'
+                                ? 'running'
+                                : 'success'
+                          }
+                          label={
+                            d.status === 'superseded'
+                              ? 'Replaced since'
+                              : d.status === 'live'
+                                ? 'Live'
+                                : undefined
+                          }
+                        />
                       </td>
                       <td className="right">
-                        <span className={`badge badge-${tone(d.healthCheck)}`}>{d.healthCheck}</span>
+                        <Ago iso={d.completedAt ?? d.startedAt} />
                       </td>
                     </tr>
                   ))}
@@ -211,68 +305,8 @@ export default function RunPage() {
         </section>
       )}
 
-      {/* ---- Selected stage: metadata + log ---- */}
-      {selected && (
-        <section className="panel-flush">
-          <div className="panel-hd">
-            <i className={`dot dot-${tone(selected.status)}`} />
-            <div>
-              <h2>{selected.name}</h2>
-              <p>
-                {STATUS_LABEL[selected.status] ?? selected.status}
-                {selected.durationMs !== null && ` · ${duration(selected.durationMs)}`}
-                {selected.startedAt && ` · started ${absolute(selected.startedAt)}`}
-              </p>
-            </div>
-            <div className="panel-hd-actions">
-              {selected.environment && (
-                <>
-                  <span className="badge badge-info">
-                    <Globe2 size={10} /> {selected.environment.region}
-                  </span>
-                  <span className="tag-mono">
-                    <Server size={10} /> {selected.environment.cluster}
-                  </span>
-                </>
-              )}
-              {selected.runnerLabel && (
-                <span className="tag-mono">
-                  <Cpu size={10} /> {selected.runnerLabel}
-                </span>
-              )}
-              {selected.attempts > 1 && (
-                <span className="badge badge-warn">
-                  <Timer size={10} /> {selected.attempts} attempts
-                </span>
-              )}
-              {selected.exitCode !== null && selected.exitCode !== 0 && (
-                <span className="badge badge-fail">exit {selected.exitCode}</span>
-              )}
-            </div>
-          </div>
-          <div className="panel-bd">
-            {Object.keys(selected.summary).length > 0 && (
-              <div className="row-wrap" style={{ marginBottom: 14 }}>
-                {Object.entries(selected.summary).map(([key, value]) => (
-                  <span key={key} className="stage-chip">
-                    {key.replace(/([A-Z])/g, ' $1').toLowerCase()}: <strong>{String(value)}</strong>
-                  </span>
-                ))}
-              </div>
-            )}
-            <LogViewer
-              log={selected.log}
-              stageName={selected.name}
-              evidence={selected.key === diagnosis?.stageKey ? evidence : []}
-            />
-            {selected.key === diagnosis?.stageKey && evidence.length > 0 && (
-              <p className="text-xs muted" style={{ marginTop: 10 }}>
-                Highlighted lines are the exact evidence the classifier matched.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+      <FixDialog repositoryId={repositoryId} fix={fix} gate={gate} onClose={() => setFix(null)} />
+      {gate.dialog}
     </div>
   );
 }

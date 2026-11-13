@@ -7,32 +7,32 @@ export default {
       colors: {
         // Core dark palette — professional developer tool aesthetic
         surface: {
-          0: '#06060a',   // Deepest background
-          1: '#0a0a0f',   // Page background
-          2: '#111118',   // Card background
-          3: '#1a1a24',   // Elevated surface
-          4: '#222233',   // Hover state
-          5: '#2a2a3d',   // Active state
+          0: '#08090a', // Deepest background
+          1: '#0b0c0e', // Page background
+          2: '#111214', // Card background
+          3: '#16171a', // Elevated surface
+          4: '#1c1d21', // Hover state
+          5: '#24252a', // Active state
         },
         border: {
-          DEFAULT: '#1e1e2e',
-          subtle: '#161622',
-          strong: '#2a2a3d',
-          accent: '#3b82f620',
+          DEFAULT: '#232428',
+          subtle: '#1a1b1e',
+          strong: '#2f3136',
+          accent: '#4493f820',
         },
         accent: {
-          DEFAULT: '#3b82f6',
-          hover: '#2563eb',
-          muted: '#3b82f620',
-          text: '#60a5fa',
+          DEFAULT: '#2f6feb',
+          hover: '#1f5fd6',
+          muted: '#4493f820',
+          text: '#7cb3ff',
         },
         // Status colors — restrained, not cartoonish
         status: {
-          healthy: '#22c55e',
-          warning: '#eab308',
-          critical: '#ef4444',
-          investigating: '#8b5cf6',
-          info: '#06b6d4',
+          healthy: '#3fb950',
+          warning: '#d29922',
+          critical: '#f85149',
+          investigating: '#4493f8',
+          info: '#4493f8',
         },
         // Severity badge colors
         severity: {
@@ -42,10 +42,10 @@ export default {
           low: { bg: '#22c55e1a', text: '#86efac', border: '#22c55e40' },
         },
         text: {
-          primary: '#e4e4ed',
-          secondary: '#9ca3b0',
-          tertiary: '#6b7280',
-          muted: '#8290a3',
+          primary: '#ededef',
+          secondary: '#a9aab1',
+          tertiary: '#7d7f87',
+          muted: '#7d7f87',
         },
       },
       fontFamily: {
@@ -60,7 +60,7 @@ export default {
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-in-right': 'slideInRight 0.3s ease-out',
         'pulse-subtle': 'pulseSubtle 2s ease-in-out infinite',
-        'shimmer': 'shimmer 2s linear infinite',
+        shimmer: 'shimmer 2s linear infinite',
       },
       keyframes: {
         fadeIn: {
@@ -86,7 +86,7 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'shimmer': 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)',
+        shimmer: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)',
       },
     },
   },
