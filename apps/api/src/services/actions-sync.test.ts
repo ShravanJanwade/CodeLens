@@ -156,6 +156,20 @@ test('finds failing tests in Vitest and Jest output', () => {
     },
   ]);
   assert.deepEqual(sync.testCountsFrom(vitest), { failed: 5, passed: 45 });
+  // The same report in CI, where the project is a coloured badge.
+  const ci = [
+    ' ❯  unit  packages/pricing/test/coupons.test.ts (4 tests | 1 failed) 24ms',
+    '     × issues unique codes for a newsletter-sized campaign 16ms',
+    ' FAIL   unit  packages/pricing/test/coupons.test.ts > coupon codes > issues unique codes for a newsletter-sized campaign',
+    'AssertionError: expected 2599 to be 2600 // Object.is equality',
+  ].join('\n');
+  assert.deepEqual(sync.failingTestsFrom(ci), [
+    {
+      name: 'coupon codes > issues unique codes for a newsletter-sized campaign',
+      file: 'packages/pricing/test/coupons.test.ts',
+      suite: 'coupon codes',
+    },
+  ]);
   const jest = '  ● Cart › applies the coupon once\n\nTests:       1 failed, 41 passed, 42 total';
   assert.equal(sync.failingTestsFrom(jest)[0]?.name, 'Cart › applies the coupon once');
   assert.deepEqual(sync.testCountsFrom(jest), { failed: 1, passed: 41 });
