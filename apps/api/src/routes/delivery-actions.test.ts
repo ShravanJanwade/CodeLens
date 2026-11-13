@@ -22,6 +22,8 @@ process.env.DATABASE_URL = path.join(directory, 'test.db');
 process.env.CODELENS_TEST = 'true';
 process.env.AI_PROVIDER = 'demo';
 process.env.APP_ORIGIN = 'http://localhost:3000';
+process.env.GITHUB_CLIENT_ID = 'test-client';
+process.env.GITHUB_CLIENT_SECRET = 'test-secret';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 await promisify(execFile)(
   process.execPath,
@@ -573,6 +575,21 @@ test('a redeploy run is recognised by its title, and a full release is not', () 
   );
   assert.equal(redeployOf({ event: 'workflow_dispatch', display_title: `Deploy all at ${shaGood}` }), null);
   assert.equal(redeployOf({ event: 'push', display_title: `Deploy production-eu at ${shaGood}` }), null);
+});
+
+test('signing in to act asks GitHub for repository access and returns to the same page', async () => {
+  const start = await app.request(
+    '/api/v1/auth/github/start?purpose=connect&next=%2Fr%2Flive-test%2Fruns%2F500',
+  );
+  assert.equal(start.status, 302, 'a signed-out visitor can start it');
+  const target = new URL(start.headers.get('location')!);
+  assert.match(target.searchParams.get('scope')!, /\brepo\b/);
+  assert.match(start.headers.get('set-cookie')!, /codelens_oauth_next=%2Fr%2Flive-test%2Fruns%2F500/);
+
+  for (const unsafe of ['//evil.example/x', 'https://evil.example', '/api/v1/auth/logout', '/\\evil']) {
+    const response = await app.request(`/api/v1/auth/github/start?next=${encodeURIComponent(unsafe)}`);
+    assert.doesNotMatch(response.headers.get('set-cookie') ?? '', /codelens_oauth_next=[^;]/, unsafe);
+  }
 });
 
 test('dispatch inputs are read from the workflow file', () => {

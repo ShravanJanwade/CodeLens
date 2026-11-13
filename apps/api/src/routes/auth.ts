@@ -102,10 +102,18 @@ authRoutes.get('/auth/me', async (c) => {
   if (!user) throw fail('Account not found', 404);
   return c.json({ data: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl } });
 });
+/** A same-origin path to return to after OAuth; anything else is ignored. */
+function safeNext(value: string | undefined | null): string | null {
+  if (!value || value.length > 300 || !value.startsWith('/') || value.startsWith('//')) return null;
+  if (/[\\\x00-\x1f]/.test(value) || value.startsWith('/api/')) return null;
+  return value;
+}
 authRoutes.get('/auth/github/start', async (c) => {
   if (!oauthReady()) return c.redirect(`${appOrigin()}/login?error=github_setup`);
   const purpose = c.req.query('purpose') === 'connect' ? 'connect' : 'login';
-  const userId = purpose === 'connect' ? requireUser(c) : null;
+  // Connecting from a signed-out page signs in with repository access in one step.
+  const userId = purpose === 'connect' ? ((c.get('userId' as never) as string | undefined) ?? null) : null;
+  const next = safeNext(c.req.query('next'));
   const state = randomBytes(32).toString('base64url'),
     verifier = randomBytes(32).toString('base64url');
   await db.delete(oauthStates).where(sql`${oauthStates.expiresAt} < ${Date.now()}`);
@@ -119,6 +127,15 @@ authRoutes.get('/auth/github/start', async (c) => {
     path: '/api',
     maxAge: 600,
   });
+  // Where to land afterwards; a stale one is harmless, it is only ever a same-origin path.
+  if (next)
+    setCookie(c, 'codelens_oauth_next', next, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      path: '/api',
+      maxAge: 600,
+    });
   const url = new URL('https://github.com/login/oauth/authorize');
   url.search = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID!,
@@ -133,8 +150,10 @@ authRoutes.get('/auth/github/start', async (c) => {
 });
 authRoutes.get('/auth/github/callback', async (c) => {
   const state = c.req.query('state'),
-    saved = getCookie(c, 'codelens_oauth');
+    saved = getCookie(c, 'codelens_oauth'),
+    next = safeNext(getCookie(c, 'codelens_oauth_next'));
   deleteCookie(c, 'codelens_oauth', { path: '/api' });
+  deleteCookie(c, 'codelens_oauth_next', { path: '/api' });
   if (!state || !saved || hash(state) !== hash(saved))
     return c.redirect(`${appOrigin()}/login?error=oauth_state`);
   const row = (
@@ -215,7 +234,7 @@ authRoutes.get('/auth/github/callback', async (c) => {
         });
     await createSession(c, userId);
     return c.redirect(
-      `${appOrigin()}${row.purpose === 'connect' ? '/account?connected=true' : '/repositories'}`,
+      `${appOrigin()}${next ?? (row.purpose === 'connect' ? '/account?connected=true' : '/repositories')}`,
     );
   } catch {
     return c.redirect(`${appOrigin()}/login?error=github_failed`);
