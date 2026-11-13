@@ -25,7 +25,7 @@
 // starts at a specific commit.
 // ============================================================
 
-export const DIAGNOSIS_ENGINE_VERSION = '2.1.0';
+export const DIAGNOSIS_ENGINE_VERSION = '2.2.0';
 
 export type DiagnosisCategory =
   | 'flaky-test'
@@ -186,6 +186,19 @@ const LOG_RULES: LogRule[] = [
   },
 
   // ---- Credentials --------------------------------------------
+  // A cloud identity refusing the pipeline's own sign-in. Azure (Entra)
+  // reports every such refusal with an AADSTS code, and OpenID Connect
+  // federation names the workflow subject it did not recognise; neither
+  // ever comes from the code being built. Found on the live example,
+  // whose first deploy met GitHub's new immutable-ID token subjects.
+  {
+    id: 'cloud-signin-refused',
+    label: 'Cloud provider refused the pipeline sign-in',
+    supports: 'secret-expiry',
+    weight: 0.7,
+    pattern:
+      /AADSTS\d{5,7}|No matching federated identity record|Not authorized to perform sts:AssumeRoleWithWebIdentity/i,
+  },
   // Deliberately narrow: a 401 from the *application* under test
   // during a verify stage is a regression, not an expired secret,
   // so these require registry/cloud/auth vocabulary nearby.
@@ -830,7 +843,9 @@ const NARRATIVES: Record<DiagnosisCategory, Narrative> = {
       return `${c.stage.name} was refused by an external provider. ${which?.detail ?? 'A credential was rejected during the stage.'} This is an access problem, not a code problem.`;
     },
     recommendation: (c) =>
-      `Rotate the credential used by ${c.stage.name} and re-run. Add an expiry alarm so the next rotation is not discovered by a red pipeline.`,
+      /No matching federated identity record|AssumeRoleWithWebIdentity/i.test(c.stage.log)
+        ? `The cloud identity does not trust the subject this workflow signed in with (it is quoted in the log). Add a federated credential for that exact subject, then re-run ${c.stage.name}. Nothing in the code needs to change.`
+        : `Rotate the credential used by ${c.stage.name} and re-run. Add an expiry alarm so the next rotation is not discovered by a red pipeline.`,
     action: 'rotate-secret',
   },
 

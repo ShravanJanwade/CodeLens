@@ -272,3 +272,29 @@ test('withholding evidence sources changes the verdict, proving they are used', 
   // reads as an ordinary assertion failure.
   assert.notEqual(diagnose(input, { sources: ['log'] }).category, 'flaky-test');
 });
+
+test('a cloud sign-in refusal is an access problem, not the commit', () => {
+  // The live example's first deploy, verbatim: GitHub presented its new
+  // immutable-ID subject and Azure had only the owner/name form on file.
+  const input = context({
+    stage: {
+      key: 'deploy-staging',
+      name: 'Deploy staging',
+      kind: 'deploy',
+      environment: 'staging',
+      region: 'westus2',
+      log: [
+        '##[group]Run azure/login@v3',
+        "##[error]Login failed with Error: The process '/usr/bin/az' failed with exit code 1. Double check if the 'auth-type' is correct.",
+        "##[error]AADSTS700213: No matching federated identity record found for presented assertion subject 'repo:ShravanJanwade@72211611/northwind-commerce@1456195707:environment:staging'.",
+      ].join('\n'),
+    },
+    run: { branch: 'main' },
+    history: { previousRunOnBranchPassed: true },
+  });
+  const verdict = diagnose(input);
+  assert.equal(verdict.category, 'secret-expiry');
+  assert.ok(verdict.signals.some((s) => s.id === 'cloud-signin-refused'));
+  assert.match(verdict.recommendation, /federated credential/);
+  assert.ok(isChangeExonerated(verdict.category));
+});

@@ -935,23 +935,16 @@ export async function syncRepository(repository: Repository, access: GitHubAcces
   await refreshEnvironments(repository.id, access, repoPath);
   await refreshPipelineStats(repository.id);
   const history = await refreshFlakeHistory(repository.id);
-  // New failures, plus any an interrupted sync stored without a verdict.
+  // Every stored failure, not only new ones: classification is a pure
+  // function of the run and its history up to that run, and costs well
+  // under a millisecond, so re-running it is how an engine fix reaches runs
+  // diagnosed before it. It also covers any failure an interrupted sync left
+  // without a verdict.
   const failed = await db
     .select({ id: pipelineRuns.id })
     .from(pipelineRuns)
     .where(and(eq(pipelineRuns.repositoryId, repository.id), eq(pipelineRuns.status, 'failed')));
-  const diagnosed = new Set(
-    (
-      await db
-        .select({ runId: pipelineDiagnoses.runId })
-        .from(pipelineDiagnoses)
-        .where(inArray(pipelineDiagnoses.runId, failed.map((row) => row.id).concat('')))
-    ).map((row) => row.runId),
-  );
-  const toDiagnose = new Set([
-    ...ingestedFailures,
-    ...failed.map((row) => row.id).filter((id) => !diagnosed.has(id)),
-  ]);
+  const toDiagnose = new Set([...ingestedFailures, ...failed.map((row) => row.id)]);
   result.failuresDiagnosed = await diagnoseRuns(repository, [...toDiagnose], history);
   return result;
 }
