@@ -43,7 +43,7 @@ export default function RunList({ repositoryId, runs, compact = false }: RunList
               <strong>{run.commitMessage}</strong>
             </Link>
             <div className="run-title-meta">
-              <span className="tag-mono">#{run.runNumber}</span>
+              <span className="tag-mono">#{run.displayNumber ?? run.runNumber}</span>
               <span>{run.pipeline}</span>
               <span>·</span>
               <span>{TRIGGER_LABEL[run.trigger] ?? run.trigger}</span>

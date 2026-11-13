@@ -99,6 +99,7 @@ jobs:
           GH_OAUTH_CLIENT_ID: ${{ secrets.GH_OAUTH_CLIENT_ID }}
           GH_OAUTH_CLIENT_SECRET: ${{ secrets.GH_OAUTH_CLIENT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_SYNC_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
         run: |
           set -euo pipefail
           app_id="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.App/containerApps/$APP_NAME"
@@ -115,6 +116,10 @@ jobs:
           key="${key:-$(openssl rand -hex 48)}"
           echo "::add-mask::$jwt"
           echo "::add-mask::$key"
+          # Read-only token for the live example's Actions logs; kept in the app
+          # once given, so removing the repository secret does not drop it.
+          sync_token="${GH_SYNC_TOKEN:-$(current github-sync-token)}"
+          if [ -n "$sync_token" ]; then echo "::add-mask::$sync_token"; fi
           ai_provider=demo
           if [ -n "$GEMINI_API_KEY" ]; then ai_provider=gemini; fi
           location="$(az resource show --resource-group "$RESOURCE_GROUP" --name "$ENVIRONMENT" \
@@ -134,7 +139,7 @@ jobs:
             --arg githubSecret "$GH_OAUTH_CLIENT_SECRET" \
             --arg ai "$ai_provider" \
             --arg geminiKey "$GEMINI_API_KEY" \
-            --arg geminiModel "${GEMINI_MODEL:-gemini-2.5-flash}" \
+            --arg geminiModel "${GEMINI_MODEL:-gemini-2.5-flash}"             --arg syncToken "$sync_token" \
             '{
               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
               contentVersion: "1.0.0.0",
@@ -150,7 +155,8 @@ jobs:
                 githubClientSecret: {value: $githubSecret},
                 aiProvider: {value: $ai},
                 geminiApiKey: {value: $geminiKey},
-                geminiModel: {value: $geminiModel}
+                geminiModel: {value: $geminiModel},
+                githubSyncToken: {value: $syncToken}
               }
             }' > "$RUNNER_TEMP/parameters.json"
           url="$(az deployment group create \

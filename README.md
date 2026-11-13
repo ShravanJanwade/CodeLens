@@ -9,6 +9,12 @@ change is even to blame.
 > No sign-in. Drops straight into a seeded five-service monorepo with 41 real
 > pipeline runs across three production regions. The demo sleeps when nobody is
 > using it, so the first load after a quiet spell takes about a minute.
+>
+> **[Watch it on a real repository →](https://codelens.icygrass-95174406.westus2.azurecontainerapps.io/live)**
+> [northwind-commerce](https://github.com/ShravanJanwade/northwind-commerce) is a
+> real TypeScript monorepo with real GitHub Actions CI/CD that deploys to three
+> Azure regions. CodeLens ingests its runs, logs and deployments when you open
+> the page and diagnoses every red build.
 
 ---
 
@@ -184,6 +190,13 @@ Being precise about this matters more than the feature list.
 
 **Real:**
 
+- GitHub Actions ingestion. Workflows become pipelines, jobs become stages laid
+  out by the workflow's `needs` graph, `environment:` jobs become regional
+  deploy targets, failing tests in the logs become flake history, and every
+  failed run is classified using only history from before it. It runs when
+  someone opens a repository's delivery view, so a scale-to-zero host is never
+  woken by a timer. The [live example](#live-example) uses it on a real
+  repository.
 - The diagnosis engine, its benchmark, the ablation and the accuracy gate.
 - The blast-radius traversal, risk scoring and coverage-gap detection.
 - GitHub OAuth, encrypted token storage, signed per-repository webhooks,
@@ -204,13 +217,36 @@ Being precise about this matters more than the feature list.
 
 **Not built:**
 
-- No live GitHub Actions ingestion — webhooks are received and verified, but the
-  pipeline model is populated by the seed rather than by polling the Actions
-  API. That is the next piece of work, and the schema is shaped for it.
+- Webhook-driven ingestion. Webhooks are received and verified, but runs are
+  pulled when someone looks rather than pushed when they finish, which keeps a
+  host that sleeps asleep.
 - The runtime executor only supports the prepared TaskForge fixture, not
   arbitrary repository builds.
 - PostgreSQL and Playwright journeys have runnable configuration but are
   verified only against SQLite locally.
+
+## Live example
+
+[ShravanJanwade/northwind-commerce](https://github.com/ShravanJanwade/northwind-commerce)
+is a small but real storefront platform: money, catalog, pricing, tax and
+checkout packages, an orders API on SQLite with migrations, and a static
+storefront rendered per region. Its pipelines are ordinary GitHub Actions: CI on
+every branch, a deploy from `main` through staging to production in West US 2,
+Canada Central and France Central, and a nightly suite with production checks.
+
+Its history keeps real red builds, several reproduced on purpose so each failure
+class has a genuine example: a regression from an off-by-one, an `npm ci` peer
+dependency conflict, a migration that adds an existing column, a readiness wait
+that times out, a region whose deploy settings are missing a key, and a test
+that is genuinely flaky. CodeLens reads those runs from the GitHub API at
+`/live` and classifies them like any other.
+
+`.codelens.json` in that repository maps GitHub environments to Azure regions
+and names the per-environment config file CodeLens compares when one region
+fails and its siblings do not. GitHub serves job logs only to authenticated
+requests, so the deployment gives CodeLens a read-only token for that one
+repository (`deploy/azure/live-example-token.sh`); without it the live example
+falls back to the runs' public annotations.
 
 ## Repository layout
 

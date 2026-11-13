@@ -6,7 +6,7 @@ import Landing from './pages/Landing';
 import Login from './features/auth/Login';
 import { RequireAuth } from './features/auth/Auth';
 import { Loading } from './components/ui';
-import { DEMO_REPO } from './features/delivery/types';
+import { DEMO_REPO, LIVE_REPO } from './features/delivery/types';
 
 // ============================================================
 // Route-level code splitting
@@ -60,6 +60,7 @@ export default function App() {
         {/* /demo is the link that goes on a résumé: it drops straight
             into a populated workspace with no sign-in. */}
         <Route path="/demo" element={<Navigate to={`/r/${DEMO_REPO}/delivery`} replace />} />
+        <Route path="/live" element={<Navigate to={`/r/${LIVE_REPO}/delivery`} replace />} />
 
         {/* ---- Product surfaces ---- */}
         <Route element={<ProductLayout />}>

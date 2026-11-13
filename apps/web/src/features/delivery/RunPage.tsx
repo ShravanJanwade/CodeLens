@@ -14,6 +14,7 @@ import {
   Server,
   Timer,
   User,
+  ExternalLink,
 } from 'lucide-react';
 import { useRunDetail } from './queries';
 import { DEMO_REPO } from './types';
@@ -78,8 +79,13 @@ export default function RunPage() {
           <div className="row-wrap" style={{ marginTop: 12 }}>
             <span className="badge badge-idle">
               <Hash size={10} />
-              {run.runNumber}
+              {run.displayNumber ?? run.runNumber}
             </span>
+            {run.externalUrl && (
+              <a className="tag-mono link" href={run.externalUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={10} /> View on GitHub
+              </a>
+            )}
             <span
               className={`badge badge-${tone(run.status) === 'pass' ? 'pass' : tone(run.status) === 'fail' ? 'fail' : 'run'}`}
             >

@@ -26,6 +26,10 @@ export interface DiagnosisBadge {
 export interface RunSummary {
   id: string;
   runNumber: number;
+  /** The CI provider's own number for the run (per workflow on GitHub). */
+  displayNumber?: number;
+  /** The run on GitHub, for ingested runs. */
+  externalUrl?: string | null;
   pipeline: string;
   branch: string;
   targetTier: string;
@@ -100,6 +104,20 @@ export interface DeliveryOverview {
     categoryCounts: Record<string, number>;
     activeRuns: number;
   };
+  /** Present for repositories whose runs are ingested from GitHub Actions. */
+  sync?: SyncInfo | null;
+}
+
+export interface SyncInfo {
+  source: 'github-actions';
+  repository: string;
+  url: string;
+  running: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  logsAvailable: boolean | null;
+  runsIngested: number | null;
 }
 
 export interface DiagnosisSignal {
@@ -279,3 +297,5 @@ export interface LiveDiagnosis extends DiagnosisBadge {
 
 /** The repository the public demo opens on. */
 export const DEMO_REPO = 'demo-commerce-platform';
+/** A real repository whose GitHub Actions runs are synced on visit. */
+export const LIVE_REPO = 'live-northwind-commerce';
