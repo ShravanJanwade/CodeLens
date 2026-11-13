@@ -34,6 +34,10 @@ import {
   CATEGORY_LABELS,
   ACTION_LABELS,
   isChangeExonerated,
+  isKnownFlake,
+  CROSS_BRANCH_THRESHOLD,
+  FLAKE_RATE_FLOOR,
+  MIN_RUNS_FOR_FLAKE,
   type FailureContext,
   type FailingTest,
   type GraphFile,
@@ -111,6 +115,8 @@ function runSummary(
     queuedMs: run.queuedMs,
     actor: run.actor,
     failedStage: run.failedStage,
+    /** Set when the run redeployed one environment at a chosen commit. */
+    deployTarget: run.deployTarget ?? null,
     diagnosis: diagnosis
       ? {
           category: diagnosis.category,
@@ -177,6 +183,67 @@ pipelineRoutes.get('/repositories/:id/delivery-overview', async (c) => {
 
   const exonerated = diagnosisRows.filter((d) => isChangeExonerated(d.category)).length;
 
+  // Runs still moving, with their stages, so the overview can show a
+  // release as it bakes in staging or waits at a production gate.
+  const activeRows = runRows.filter((r) => ['queued', 'running', 'blocked'].includes(r.status)).slice(0, 3);
+  const activeStages = activeRows.length
+    ? await db
+        .select()
+        .from(pipelineStages)
+        .where(
+          inArray(
+            pipelineStages.runId,
+            activeRows.map((r) => r.id),
+          ),
+        )
+        .orderBy(asc(pipelineStages.sequence), asc(pipelineStages.lane))
+    : [];
+  const envNameById = new Map(envRows.map((e) => [e.id, e.name]));
+
+  // Which run put each environment's current release there.
+  const liveDeploys = envRows.length
+    ? await db
+        .select()
+        .from(environmentDeployments)
+        .where(
+          inArray(
+            environmentDeployments.environmentId,
+            envRows.map((e) => e.id),
+          ),
+        )
+    : [];
+  const releaseRunIds = [
+    ...new Set(liveDeploys.map((d) => d.runId).filter((id): id is string => Boolean(id))),
+  ];
+  const releaseRuns = releaseRunIds.length
+    ? await db.select().from(pipelineRuns).where(inArray(pipelineRuns.id, releaseRunIds))
+    : [];
+  const releaseRunById = new Map(releaseRuns.map((r) => [r.id, r]));
+  const currentRunOf = (env: (typeof envRows)[number]) => {
+    const deploy = liveDeploys
+      .filter(
+        (d) => d.environmentId === env.id && d.commitSha === env.currentCommitSha && d.status !== 'failed',
+      )
+      .sort((a, b) => (b.completedAt ?? b.startedAt).localeCompare(a.completedAt ?? a.startedAt))[0];
+    const run = deploy?.runId ? releaseRunById.get(deploy.runId) : undefined;
+    return run
+      ? {
+          runNumber: run.runNumber,
+          displayNumber: run.displayNumber ?? run.runNumber,
+          commitMessage: run.commitMessage,
+          pipeline: pipelineById.get(run.pipelineId)?.name ?? 'Pipeline',
+        }
+      : null;
+  };
+  const latestDeployOf = (env: (typeof envRows)[number]) => {
+    const deploy = liveDeploys
+      .filter((d) => d.environmentId === env.id)
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+    return deploy
+      ? { status: deploy.status, commitShort: deploy.commitSha.slice(0, 7), startedAt: deploy.startedAt }
+      : null;
+  };
+
   return c.json({
     data: {
       repository: {
@@ -217,6 +284,8 @@ pipelineRoutes.get('/repositories/:id/delivery-overview', async (c) => {
           latencyP95: e.latencyP95,
           requestsPerMin: e.requestsPerMin,
           replicas: e.replicas,
+          currentRun: currentRunOf(e),
+          latestDeploy: latestDeployOf(e),
         }))
         .sort(
           (a, b) =>
@@ -228,6 +297,22 @@ pipelineRoutes.get('/repositories/:id/delivery-overview', async (c) => {
         .map((r) =>
           runSummary(r, pipelineById.get(r.pipelineId)?.name ?? 'Pipeline', diagnosisByRun.get(r.id)),
         ),
+      activeRuns: activeRows.map((r) => ({
+        ...runSummary(r, pipelineById.get(r.pipelineId)?.name ?? 'Pipeline', diagnosisByRun.get(r.id)),
+        stages: activeStages
+          .filter((s) => s.runId === r.id)
+          .map((s) => ({
+            key: s.stageKey,
+            name: s.name,
+            kind: s.kind,
+            status: s.status,
+            sequence: s.sequence,
+            startedAt: s.startedAt,
+            completedAt: s.completedAt,
+            environment: s.environmentId ? (envNameById.get(s.environmentId) ?? null) : null,
+            bakeMinutes: (visibleSummary(s.summary).bakeMinutes as number | undefined) ?? null,
+          })),
+      })),
       stats: {
         windowRuns: finished.length,
         successRate: finished.length ? 1 - failed.length / finished.length : null,
@@ -652,7 +737,25 @@ pipelineRoutes.get('/repositories/:id/flaky-tests', async (c) => {
   // something to whoever has to justify fixing them.
   const pipelineRows = await db.select().from(pipelines).where(eq(pipelines.repositoryId, repository.id));
   const p50 = median(pipelineRows.map((p) => p.p50DurationMs ?? 0).filter((n) => n > 0)) ?? 0;
-  const wastedMs = rows.reduce((acc, r) => acc + r.failCount * p50, 0);
+  // The registry holds every test that has failed; only those past the
+  // classifier's bar are flaky. The rest failed for a reason of their own.
+  const flaky = rows.filter((r) => isKnownFlake(r));
+  const wastedMs = flaky.reduce((acc, r) => acc + r.failCount * p50, 0);
+  const verdictOf = (r: (typeof rows)[number]) => {
+    if (isKnownFlake(r)) return { status: 'flaky' as const, reason: null };
+    if (r.failCount <= 1) return { status: 'not-flaky' as const, reason: 'Failed once' };
+    if (r.distinctBranches < CROSS_BRANCH_THRESHOLD)
+      return {
+        status: 'not-flaky' as const,
+        reason: `Failed on ${r.distinctBranches} branch${r.distinctBranches === 1 ? '' : 'es'}; flaky needs ${CROSS_BRANCH_THRESHOLD}`,
+      };
+    if (r.runCount < MIN_RUNS_FOR_FLAKE)
+      return {
+        status: 'not-flaky' as const,
+        reason: `Only ${r.runCount} runs so far; needs ${MIN_RUNS_FOR_FLAKE}`,
+      };
+    return { status: 'not-flaky' as const, reason: 'Fails too rarely to call flaky' };
+  };
 
   return c.json({
     data: rows.map((r) => ({
@@ -667,13 +770,20 @@ pipelineRoutes.get('/repositories/:id/flaky-tests', async (c) => {
       quarantined: r.quarantined,
       firstSeenAt: r.firstSeenAt,
       lastFailedAt: r.lastFailedAt,
+      ...verdictOf(r),
     })),
     stats: {
-      total: rows.length,
+      total: flaky.length,
+      otherFailing: rows.length - flaky.length,
       quarantined: rows.filter((r) => r.quarantined).length,
-      worstFlakeRate: rows[0]?.flakeRate ?? null,
+      worstFlakeRate: flaky[0]?.flakeRate ?? null,
       estimatedWastedMs: wastedMs,
       medianPipelineMs: p50,
+      thresholds: {
+        minRuns: MIN_RUNS_FOR_FLAKE,
+        minFlakeRate: FLAKE_RATE_FLOOR,
+        minBranches: CROSS_BRANCH_THRESHOLD,
+      },
     },
   });
 });

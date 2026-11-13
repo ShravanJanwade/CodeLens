@@ -71,6 +71,7 @@ export async function migratePipelines(client: Client) {
       failed_stage TEXT,
       external_url TEXT,
       display_number INTEGER,
+      deploy_target TEXT,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_pipeline_runs_repo ON pipeline_runs(repository_id, started_at);
@@ -159,6 +160,24 @@ export async function migratePipelines(client: Client) {
       first_seen_at TEXT NOT NULL,
       last_failed_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS delivery_actions (
+      id TEXT PRIMARY KEY,
+      repository_id TEXT NOT NULL REFERENCES repositories(id),
+      user_id TEXT NOT NULL,
+      github_login TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      target TEXT NOT NULL,
+      run_id TEXT,
+      environment TEXT,
+      detail TEXT NOT NULL DEFAULT '{}',
+      outcome TEXT NOT NULL,
+      message TEXT,
+      url TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_delivery_actions_repo ON delivery_actions(repository_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_delivery_actions_user ON delivery_actions(user_id, created_at);
+
     CREATE INDEX IF NOT EXISTS idx_flaky_tests_repo ON flaky_tests(repository_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_flaky_tests_name
       ON flaky_tests(repository_id, test_name);
@@ -210,6 +229,7 @@ async function addMissingColumns(client: Client) {
     ['diagnosis_benchmark_runs', 'ablation', "TEXT NOT NULL DEFAULT '[]'"],
     ['pipeline_runs', 'external_url', 'TEXT'],
     ['pipeline_runs', 'display_number', 'INTEGER'],
+    ['pipeline_runs', 'deploy_target', 'TEXT'],
   ];
   for (const [table, column, definition] of additions) {
     const info = await client.execute(`PRAGMA table_info(${table})`);
