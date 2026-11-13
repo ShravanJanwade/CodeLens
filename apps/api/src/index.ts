@@ -20,6 +20,7 @@ import { snapshot, selectSources, selectedCodeSources, validateCitations } from 
 import { releaseRoutes } from './rehearsal/routes';
 import { pipelineRoutes } from './pipeline/routes';
 import { startWorker } from './rehearsal/runner';
+import { ensureLiveExample } from './services/actions-sync';
 import { resolveIdentity, checkOrigin } from './services/identity';
 import { authRoutes } from './routes/auth';
 import { repositoryRoutes } from './routes/repositories';
@@ -1056,5 +1057,6 @@ if (process.env.NODE_ENV === 'production' || process.env.SERVE_WEB === 'true') {
 if (process.env.CODELENS_TEST !== 'true')
   serve({ fetch: app.fetch, port }, (info) => {
     startWorker();
+    void ensureLiveExample().catch((error) => console.error('Could not register the live example:', error));
     console.log(`CodeLens API listening on http://localhost:${info.port}`);
   });

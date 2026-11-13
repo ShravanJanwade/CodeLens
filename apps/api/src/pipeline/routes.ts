@@ -39,6 +39,9 @@ import {
   type GraphFile,
   type FileRole,
 } from '@codelens/shared';
+import { buildFailureContext } from './context';
+import { requestSync, syncStatus } from '../services/actions-sync';
+import { endpointsIn, serviceOf } from './graph-inference';
 
 export const pipelineRoutes = new Hono();
 const db = getDb();
@@ -74,6 +77,12 @@ async function requireRepository(id: string) {
   return row;
 }
 
+/** Stage counters for display; ingestion bookkeeping stays server-side. */
+function visibleSummary(raw: string): Record<string, unknown> {
+  const { evidence: _evidence, githubJobId: _githubJobId, ...rest } = json<Record<string, unknown>>(raw, {});
+  return rest;
+}
+
 /** Shared shape for a run in list views. */
 function runSummary(
   run: typeof pipelineRuns.$inferSelect,
@@ -83,6 +92,9 @@ function runSummary(
   return {
     id: run.id,
     runNumber: run.runNumber,
+    // GitHub numbers runs per workflow; runNumber stays unique per repository.
+    displayNumber: run.displayNumber ?? run.runNumber,
+    externalUrl: run.externalUrl,
     pipeline: pipelineName,
     branch: run.branch,
     targetTier: run.targetTier,
@@ -123,6 +135,9 @@ function runSummary(
 
 pipelineRoutes.get('/repositories/:id/delivery-overview', async (c) => {
   const repository = await requireRepository(c.req.param('id'));
+  // Repositories with real GitHub runs catch up in the background; this
+  // request answers with what is stored and says whether a sync is running.
+  requestSync(repository);
 
   const [pipelineRows, envRows, runRows] = await Promise.all([
     db.select().from(pipelines).where(eq(pipelines.repositoryId, repository.id)),
@@ -227,6 +242,7 @@ pipelineRoutes.get('/repositories/:id/delivery-overview', async (c) => {
         categoryCounts,
         activeRuns: runRows.filter((r) => r.status === 'running' || r.status === 'queued').length,
       },
+      sync: syncStatus(repository),
     },
   });
 });
@@ -237,6 +253,7 @@ pipelineRoutes.get('/repositories/:id/delivery-overview', async (c) => {
 
 pipelineRoutes.get('/repositories/:id/pipeline-runs', async (c) => {
   const repository = await requireRepository(c.req.param('id'));
+  requestSync(repository);
   const { branch, status, tier, category, limit } = c.req.query();
 
   const conditions = [eq(pipelineRuns.repositoryId, repository.id)];
@@ -362,7 +379,7 @@ pipelineRoutes.get('/repositories/:id/pipeline-runs/:runNumber', async (c) => {
       attempts: s.attempts,
       exitCode: s.exitCode,
       runnerLabel: s.runnerLabel,
-      summary: json<Record<string, unknown>>(s.summary, {}),
+      summary: visibleSummary(s.summary),
       log: s.log,
       environment: env
         ? {
@@ -458,90 +475,9 @@ pipelineRoutes.get('/repositories/:id/pipeline-runs/:runNumber/rediagnose', asyn
   if (run.status !== 'failed' || !run.failedStage)
     return c.json({ data: null, reason: 'This run did not fail, so there is nothing to diagnose.' });
 
-  const stageRows = await db.select().from(pipelineStages).where(eq(pipelineStages.runId, run.id));
-  const broken = stageRows.find((s) => s.stageKey === run.failedStage);
-  if (!broken) fail('Failed stage is missing from the run');
-
-  const envRows = await db.select().from(environments).where(eq(environments.repositoryId, repository.id));
-  const brokenEnv = broken.environmentId ? envRows.find((e) => e.id === broken.environmentId) : undefined;
-
-  // ---- Rebuild the evidence from stored rows ----
-
-  // Sibling deploys at the same DAG level: this is the region
-  // asymmetry the classifier keys on.
-  const siblingRegionResults = stageRows
-    .filter((s) => s.kind === 'deploy' && s.sequence === broken.sequence && s.environmentId)
-    .map((s) => ({
-      region: envRows.find((e) => e.id === s.environmentId)?.region ?? 'unknown',
-      status: s.status,
-    }));
-
-  // Flake history for tests named in the failing stage's log.
-  const flakeRows = await db.select().from(flakyTests).where(eq(flakyTests.repositoryId, repository.id));
-  const failingTests: FailingTest[] = flakeRows
-    .filter((f) => broken.log.includes(f.testName))
-    .map((f) => ({
-      name: f.testName,
-      file: f.filePath,
-      suite: f.suite,
-      flakeRate: f.flakeRate,
-      distinctBranches: f.distinctBranches,
-      runCount: f.runCount,
-      firstFailure: false,
-    }));
-
-  // Was the previous run on this branch green?
-  const previous = (
-    await db
-      .select()
-      .from(pipelineRuns)
-      .where(and(eq(pipelineRuns.repositoryId, repository.id), eq(pipelineRuns.branch, run.branch)))
-      .orderBy(desc(pipelineRuns.startedAt))
-      .limit(10)
-  ).find((r) => r.startedAt < run.startedAt);
-
-  // Median duration of this stage across green runs, for the
-  // duration-outlier signal.
-  const baselineRows = await db
-    .select({ durationMs: pipelineStages.durationMs })
-    .from(pipelineStages)
-    .innerJoin(pipelineRuns, eq(pipelineStages.runId, pipelineRuns.id))
-    .where(
-      and(
-        eq(pipelineRuns.repositoryId, repository.id),
-        eq(pipelineStages.stageKey, broken.stageKey),
-        eq(pipelineStages.status, 'success'),
-      ),
-    );
-
-  const context: FailureContext = {
-    stage: {
-      key: broken.stageKey,
-      name: broken.name,
-      kind: broken.kind,
-      exitCode: broken.exitCode,
-      durationMs: broken.durationMs,
-      attempts: broken.attempts,
-      log: broken.log,
-      baselineDurationMs: median(baselineRows.map((r) => r.durationMs ?? 0).filter((n) => n > 0)),
-      region: brokenEnv?.region ?? null,
-      environment: brokenEnv?.name ?? null,
-    },
-    run: {
-      branch: run.branch,
-      defaultBranch: repository.defaultBranch,
-      trigger: run.trigger,
-      commitSha: run.commitSha,
-      commitMessage: run.commitMessage,
-      commitAuthor: run.commitAuthor,
-      filesChanged: [],
-    },
-    history: {
-      failingTests,
-      previousRunOnBranchPassed: previous ? previous.status === 'success' : undefined,
-      siblingRegionResults: siblingRegionResults.length > 1 ? siblingRegionResults : undefined,
-    },
-  };
+  const built = await buildFailureContext(repository, run);
+  if (!built) fail('Failed stage is missing from the run');
+  const { context, broken, failingTests, siblingRegionResults, greenBaselineSamples } = built;
 
   const t0 = performance.now();
   const verdict = diagnose(context);
@@ -560,7 +496,7 @@ pipelineRoutes.get('/repositories/:id/pipeline-runs/:runNumber/rediagnose', asyn
         logBytes: broken.log.length,
         failingTests: failingTests.length,
         siblingRegions: siblingRegionResults.length,
-        greenBaselineSamples: baselineRows.length,
+        greenBaselineSamples,
       },
     },
   });
@@ -573,20 +509,55 @@ pipelineRoutes.get('/repositories/:id/pipeline-runs/:runNumber/rediagnose', asyn
 // the blast-radius endpoint below.
 
 async function loadGraph(repositoryId: string) {
+  // Every index run is kept as a snapshot; the graph is the newest complete one.
+  const latest = (
+    await db
+      .select({ id: schema.codeAnalysisRuns.id })
+      .from(schema.codeAnalysisRuns)
+      .where(
+        and(
+          eq(schema.codeAnalysisRuns.repositoryId, repositoryId),
+          eq(schema.codeAnalysisRuns.status, 'completed'),
+        ),
+      )
+      .orderBy(desc(schema.codeAnalysisRuns.completedAt))
+      .limit(1)
+  )[0];
   const [fileRows, edgeRows] = await Promise.all([
-    db.select().from(schema.repositoryFiles).where(eq(schema.repositoryFiles.repositoryId, repositoryId)),
-    db.select().from(schema.repositoryEdges).where(eq(schema.repositoryEdges.repositoryId, repositoryId)),
+    db
+      .select()
+      .from(schema.repositoryFiles)
+      .where(
+        latest
+          ? and(
+              eq(schema.repositoryFiles.repositoryId, repositoryId),
+              eq(schema.repositoryFiles.analysisRunId, latest.id),
+            )
+          : eq(schema.repositoryFiles.repositoryId, repositoryId),
+      ),
+    db
+      .select()
+      .from(schema.repositoryEdges)
+      .where(
+        latest
+          ? and(
+              eq(schema.repositoryEdges.repositoryId, repositoryId),
+              eq(schema.repositoryEdges.analysisRunId, latest.id),
+            )
+          : eq(schema.repositoryEdges.repositoryId, repositoryId),
+      ),
   ]);
 
   const files: GraphFile[] = fileRows.map((f) => {
-    // The indexer stashes role/service/endpoints in `summary`; fall
-    // back to inferring from the path when it did not.
+    // The seeded demo stores role/service/endpoints in `summary`; for an
+    // indexed repository they are inferred from the path and the source.
     const meta = json<{ role?: FileRole; service?: string; endpoints?: string[] }>(f.summary, {});
+    const role = meta.role ?? inferRole(f.path);
     return {
       path: f.path,
-      role: meta.role ?? inferRole(f.path),
-      service: meta.service,
-      endpoints: meta.endpoints ?? [],
+      role,
+      service: meta.service ?? serviceOf(f.path),
+      endpoints: meta.endpoints ?? (role === 'test' ? [] : endpointsIn(f.content ?? '')),
       complexity: f.complexity,
     };
   });

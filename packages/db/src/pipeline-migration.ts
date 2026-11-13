@@ -69,6 +69,8 @@ export async function migratePipelines(client: Client) {
       queued_ms INTEGER,
       actor TEXT NOT NULL,
       failed_stage TEXT,
+      external_url TEXT,
+      display_number INTEGER,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_pipeline_runs_repo ON pipeline_runs(repository_id, started_at);
@@ -206,6 +208,8 @@ async function addMissingColumns(client: Client) {
     ['diagnosis_benchmark_runs', 'hard_accuracy', 'REAL NOT NULL DEFAULT 0'],
     ['diagnosis_benchmark_runs', 'hard_cases', 'INTEGER NOT NULL DEFAULT 0'],
     ['diagnosis_benchmark_runs', 'ablation', "TEXT NOT NULL DEFAULT '[]'"],
+    ['pipeline_runs', 'external_url', 'TEXT'],
+    ['pipeline_runs', 'display_number', 'INTEGER'],
   ];
   for (const [table, column, definition] of additions) {
     const info = await client.execute(`PRAGMA table_info(${table})`);
