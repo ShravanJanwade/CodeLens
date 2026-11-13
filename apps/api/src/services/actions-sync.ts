@@ -412,11 +412,16 @@ export interface FailedTest {
   suite: string;
 }
 
-/** Tests a log reports as failed: Vitest's `FAIL file > suite > test` and Jest's `● suite › test`. */
+/**
+ * Tests a log reports as failed: Vitest's `FAIL file > suite > test` and
+ * Jest's `● suite › test`. A Vitest workspace names the project before the
+ * file: `|unit|` in a plain terminal, but a coloured badge in CI, which reads
+ * ` unit ` once the colour codes are stripped.
+ */
 export function failingTestsFrom(log: string): FailedTest[] {
   const tests = new Map<string, FailedTest>();
   for (const match of log.matchAll(
-    /^\s*FAIL\s+(?:\|[^|\n]+\|\s+)?(\S+?\.(?:test|spec)\.[cm]?[jt]sx?)\s+>\s+(.+?)\s*$/gm,
+    /^\s*FAIL\s+(?:(?:\|[^|\n]+\||[\w-]+)\s+)?(\S+?\.(?:test|spec)\.[cm]?[jt]sx?)\s+>\s+(.+?)\s*$/gm,
   )) {
     const parts = match[2].split(' > ');
     tests.set(match[2], {
